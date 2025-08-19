@@ -1,6 +1,7 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
+import { useAbstraxionAccount } from "@burnt-labs/abstraxion-react-native";
 
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -10,6 +11,15 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const { isConnected } = useAbstraxionAccount();
+
+  // Redirect to home if not connected
+  useEffect(() => {
+    if (!isConnected) {
+      router.replace('/');
+    }
+  }, [isConnected, router]);
 
   return (
     <Tabs

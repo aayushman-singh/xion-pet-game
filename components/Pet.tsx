@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ThemedText } from './ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
-import { PetSprite } from './PetSprite';
+import { PetSVG } from './PetSVG';
 
 import { Pet as PetType, PetRarity, PetStats } from '../types/pet';
 import { PetRarity as PetRarityComponent } from './PetRarity';
@@ -28,9 +28,8 @@ interface PetProps {
 export function Pet({
   name,
   type,
-  happiness = 100,
-  energy = 100,
-  hunger = 100,
+  rarity,
+  stats,
   onPet,
   onFeed,
   onPlay,
@@ -102,15 +101,15 @@ export function Pet({
       
       <Pressable onPress={handlePet}>
         <Animated.View style={[styles.pet, petStyle]}>
-          <PetSprite type={type} size={120} isAnimating={true} />
+          <PetSVG type={type} size={120} isAnimating={true} />
         </Animated.View>
       </Pressable>
 
-      <View style={styles.stats}>
-        <ThemedText>❤️ {happiness}%</ThemedText>
-        <ThemedText>⚡ {energy}%</ThemedText>
-        <ThemedText>🍖 {hunger}%</ThemedText>
-      </View>
+             <View style={styles.stats}>
+         <ThemedText>❤️ {stats.happiness}%</ThemedText>
+         <ThemedText>⚡ {stats.energy}%</ThemedText>
+         <ThemedText>🍖 {stats.hunger}%</ThemedText>
+       </View>
 
       <View style={styles.actions}>
         <Pressable onPress={handleFeed} style={styles.button}>

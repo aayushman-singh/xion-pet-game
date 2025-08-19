@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Pressable, Image } from 'react-native';
+import { StyleSheet, Pressable, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAbstraxionAccount, useAbstraxionSigningClient } from "@burnt-labs/abstraxion-react-native";
+import { useAbstraxionAccount, useAbstraxionSigningClient, useAbstraxionClient } from "@burnt-labs/abstraxion-react-native";
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Pet } from '@/components/Pet';
@@ -25,59 +25,104 @@ const STARTER_PET: PetType = {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { data: account, login, isConnected } = useAbstraxionAccount();
+  const { data: account, login, logout, isConnected } = useAbstraxionAccount();
   const { client: signingClient } = useAbstraxionSigningClient();
+  const { client: queryClient } = useAbstraxionClient();
   const [hasStarterPet, setHasStarterPet] = useState(false);
   const [isClaimingPet, setIsClaimingPet] = useState(false);
 
-  // Check if user has a starter pet
+  // Check if user has a starter pet from on-chain storage
   useEffect(() => {
     const checkStarterPet = async () => {
-      if (account?.bech32Address && signingClient) {
+      if (account?.bech32Address && queryClient) {
         try {
-          // TODO: Replace with actual contract query
-          // const response = await signingClient.queryContractSmart(
-          //   process.env.EXPO_PUBLIC_PET_NFT_CONTRACT_ADDRESS,
-          //   { get_user_pets: { owner: account.bech32Address } }
-          // );
-          // setHasStarterPet(response.pets.length > 0);
-          setHasStarterPet(false); // For now, always show claim option
+          // Query the user map contract to get user's pet data
+          const response = await queryClient.queryContractSmart(
+            process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS,
+            { get_value_by_user: { address: account.bech32Address } }
+          );
+          
+          if (response && typeof response === 'string') {
+            try {
+              const userData = JSON.parse(response);
+              setHasStarterPet(userData.hasStarterPet === true);
+            } catch (parseError) {
+              // If response is not valid JSON or doesn't have pet data, user hasn't claimed
+              setHasStarterPet(false);
+            }
+          } else {
+            setHasStarterPet(false);
+          }
         } catch (error) {
-          console.error('Error checking starter pet:', error);
+          // If user has no data stored, they haven't claimed a starter pet
+          if (error.message && error.message.includes("not found") || 
+              error.message && error.message.includes("No value found") ||
+              error.message && error.message.includes("unknown request")) {
+            setHasStarterPet(false);
+          } else {
+            console.error('Error checking starter pet:', error);
+            setHasStarterPet(false);
+          }
         }
       }
     };
 
     checkStarterPet();
-  }, [account, signingClient]);
+  }, [account, queryClient]);
 
   const handleClaimStarterPet = async () => {
     if (!account?.bech32Address || !signingClient) {
+      Alert.alert('Error', 'Please connect your wallet first');
       return;
     }
 
     setIsClaimingPet(true);
     try {
-      // TODO: Replace with actual contract call
-      // const mintMsg = {
-      //   mint_starter_pet: {
-      //     owner: account.bech32Address,
-      //     pet_type: STARTER_PET.id,
-      //   },
-      // };
-      // await signingClient.execute(
-      //   account.bech32Address,
-      //   process.env.EXPO_PUBLIC_PET_NFT_CONTRACT_ADDRESS,
-      //   mintMsg,
-      //   'auto'
-      // );
-      
-      // For now, just simulate success
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setHasStarterPet(true);
-      router.push('/pet');
+      // Create user data structure to store on-chain
+      const userData = {
+        hasStarterPet: true,
+        starterPet: {
+          id: STARTER_PET.id,
+          name: STARTER_PET.name,
+          type: 'cat',
+          rarity: 'common',
+          stats: STARTER_PET.baseStats,
+          claimedAt: new Date().toISOString(),
+        },
+        // Future fields for pet collection, house data, etc.
+        pets: [STARTER_PET.id],
+        houseData: null,
+        lastUpdated: new Date().toISOString(),
+      };
+
+      // Store user data on-chain using the user map contract
+      const msg = {
+        update: {
+          value: JSON.stringify(userData)
+        }
+      };
+
+      const result = await signingClient.execute(
+        account.bech32Address,
+        process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS,
+        msg,
+        'auto'
+      );
+
+      if (result) {
+        setHasStarterPet(true);
+        Alert.alert(
+          'Success!', 
+          'Your starter cat has been claimed and stored on the blockchain!',
+          [{ text: 'OK', onPress: () => router.push('/pet') }]
+        );
+      }
     } catch (error) {
       console.error('Error claiming starter pet:', error);
+      Alert.alert(
+        'Error', 
+        'Failed to claim starter pet. Please check your network connection and try again.'
+      );
     } finally {
       setIsClaimingPet(false);
     }
@@ -92,10 +137,16 @@ export default function HomeScreen() {
         />
         <ThemedText style={styles.title}>Welcome to XION Pet Game!</ThemedText>
         <ThemedText style={styles.description}>
-          Connect your wallet to start your pet adventure
+          Connect your wallet to start your pet adventure and unlock all features
+        </ThemedText>
+        <ThemedText style={styles.featuresText}>
+          • Claim your starter pet{'\n'}
+          • Build your pet house{'\n'}
+          • Mint new pets as NFTs{'\n'}
+          • Explore other players' pets
         </ThemedText>
         <Pressable style={styles.connectButton} onPress={login}>
-          <ThemedText style={styles.buttonText}>Connect Wallet</ThemedText>
+          <ThemedText style={styles.buttonText}>Connect Wallet to Start</ThemedText>
         </Pressable>
       </ThemedView>
     );
@@ -103,6 +154,13 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <Pressable 
+        style={styles.logoutButtonTop}
+        onPress={logout}
+      >
+        <ThemedText style={styles.logoutButtonText}>Disconnect</ThemedText>
+      </Pressable>
+      
       <ThemedText style={styles.title}>Welcome to XION Pet Game!</ThemedText>
       
       {!hasStarterPet ? (
@@ -118,35 +176,35 @@ export default function HomeScreen() {
               stats={STARTER_PET.baseStats}
             />
           </ThemedView>
-          <Pressable 
-            style={[styles.claimButton, isClaimingPet && styles.buttonDisabled]}
-            onPress={handleClaimStarterPet}
-            disabled={isClaimingPet}
-          >
-            <ThemedText style={styles.buttonText}>
-              {isClaimingPet ? 'Claiming...' : 'Claim Starter Pet'}
-            </ThemedText>
-          </Pressable>
+                     <Pressable 
+             style={[styles.claimButton, isClaimingPet && styles.buttonDisabled]}
+             onPress={handleClaimStarterPet}
+             disabled={isClaimingPet}
+           >
+             <ThemedText style={styles.buttonText}>
+               {isClaimingPet ? 'Claiming...' : 'Claim Starter Pet'}
+             </ThemedText>
+           </Pressable>
         </>
       ) : (
         <>
           <ThemedText style={styles.description}>
             Visit your pet in the Pet tab or mint new pets in the Mint tab!
           </ThemedText>
-          <ThemedView style={styles.buttonContainer}>
-            <Pressable 
-              style={styles.navButton}
-              onPress={() => router.push('/pet')}
-            >
-              <ThemedText style={styles.buttonText}>Visit Pet</ThemedText>
-            </Pressable>
-            <Pressable 
-              style={styles.navButton}
-              onPress={() => router.push('/nft')}
-            >
-              <ThemedText style={styles.buttonText}>Mint New Pet</ThemedText>
-            </Pressable>
-          </ThemedView>
+                     <ThemedView style={styles.buttonContainer}>
+             <Pressable 
+               style={styles.navButton}
+               onPress={() => router.push('/pet')}
+             >
+               <ThemedText style={styles.buttonText}>Visit Pet</ThemedText>
+             </Pressable>
+             <Pressable 
+               style={styles.navButton}
+               onPress={() => router.push('/nft')}
+             >
+               <ThemedText style={styles.buttonText}>Mint New Pet</ThemedText>
+             </Pressable>
+           </ThemedView>
         </>
       )}
     </ThemedView>
@@ -176,7 +234,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     opacity: 0.8,
+    marginBottom: 20,
+  },
+  featuresText: {
+    fontSize: 14,
+    textAlign: 'left',
+    opacity: 0.7,
     marginBottom: 30,
+    lineHeight: 20,
   },
   previewContainer: {
     marginVertical: 20,
@@ -215,6 +280,28 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  logoutButtonTop: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: '#f44336',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+    zIndex: 1000,
+  },
+  logoutButton: {
+    backgroundColor: '#f44336',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginTop: 20,
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

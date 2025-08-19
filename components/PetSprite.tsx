@@ -38,7 +38,7 @@ export function PetSprite({ type, size = 120, isAnimating = true }: PetSpritePro
     switch (petType) {
       case 'starter-cat':
       case 'cat':
-        return require('../assets/images/icon.png'); // Temporarily use icon.png to test
+        return require('../assets/images/icon.png');
       default:
         return require('../assets/images/icon.png');
     }

@@ -4,6 +4,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { ThemedText } from './ThemedText';
@@ -116,7 +117,9 @@ function DraggableItem({ item, onMove, gridSize, cellSize }: DraggableItemProps)
       translateX.value = withSpring(newX * cellSize);
       translateY.value = withSpring(newY * cellSize);
       
-      onMove?.(item.id, newX, newY);
+      if (onMove) {
+        runOnJS(onMove)(item.id, newX, newY);
+      }
     });
 
   const animatedStyle = useAnimatedStyle(() => ({

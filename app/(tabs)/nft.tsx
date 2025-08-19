@@ -6,14 +6,14 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 
 export default function NFTScreen() {
-  const { data: account, login } = useAbstraxionAccount();
+  const { data: account, login, isConnected } = useAbstraxionAccount();
 
   const handlePetMinted = (petData: any) => {
     // TODO: Update pet collection in state/chain
     console.log('Pet minted:', petData);
   };
 
-  if (!account) {
+  if (!isConnected) {
     return (
       <ThemedView style={styles.container}>
         <ThemedText style={styles.title}>Connect Wallet</ThemedText>
