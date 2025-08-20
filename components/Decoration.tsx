@@ -10,7 +10,7 @@ interface DecorationProps {
   category: 'furniture' | 'decoration'; // New: furniture vs decoration
 }
 
-export function Decoration({ type, rarity = 'common', size = 40 }: DecorationProps) {
+export function Decoration({ type, rarity = 'common', size = 40, category }: DecorationProps) {
   const backgroundColor = useThemeColor('background');
   const textColor = useThemeColor('text');
 
@@ -25,6 +25,18 @@ export function Decoration({ type, rarity = 'common', size = 40 }: DecorationPro
         return '#4169E1';
       default:
         return '#808080';
+    }
+  };
+
+  // Get border color based on category
+  const getCategoryBorderColor = () => {
+    switch (category) {
+      case 'furniture':
+        return 'rgba(255, 165, 0, 0.4)'; // Subtle golden orange
+      case 'decoration':
+        return 'rgba(128, 0, 128, 0.4)'; // Subtle purple
+      default:
+        return 'rgba(128, 128, 128, 0.3)'; // Subtle gray
     }
   };
 
@@ -79,7 +91,7 @@ export function Decoration({ type, rarity = 'common', size = 40 }: DecorationPro
         styles.container,
         {
           backgroundColor,
-          borderColor: getRarityColor(),
+          borderColor: getCategoryBorderColor(),
           width: size,
           height: size,
         },

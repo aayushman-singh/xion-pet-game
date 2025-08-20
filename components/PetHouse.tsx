@@ -119,6 +119,9 @@ export function PetHouse({ items, onItemMove, scene = 'inside' }: PetHouseProps)
           
           {/* Height restriction indicators - both scenes at y=4 */}
           <View style={[styles.restrictionLine, { top: 4 * CELL_SIZE }]} />
+          <ThemedText style={[styles.restrictionLabel, { top: 4 * CELL_SIZE - 20 }]}>
+            Ground Level (y=4)
+          </ThemedText>
         </View>
       </ScrollView>
       
@@ -174,9 +177,11 @@ function DraggableItem({ item, onMove, onDragStateChange, gridSize, cellSize, cu
         if (currentScene === 'inside') {
           // Inside furniture must be above y=4 (floating furniture)
           newY = Math.max(4, newY);
+          console.log(`Inside furniture restricted to y >= 4, final y: ${newY}`);
         } else if (currentScene === 'outside') {
           // Outside furniture must be above y=4 (ground level)
           newY = Math.max(4, newY);
+          console.log(`Outside furniture restricted to y >= 4, final y: ${newY}`);
         }
       }
       // Decorations can go anywhere (no height restrictions)
@@ -287,6 +292,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.3)', // Subtle white line
+    zIndex: 1,
+  },
+  restrictionLabel: {
+    position: 'absolute',
+    left: 10,
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: 'bold',
     zIndex: 1,
   },
 

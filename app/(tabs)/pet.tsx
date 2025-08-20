@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, Alert, View } from 'react-native';
+import { ScrollView, StyleSheet, Alert, View, Pressable, Modal, Image } from 'react-native';
 import { Pet } from '@/components/Pet';
 import { PetHouse } from '@/components/PetHouse';
 import { Decoration } from '@/components/Decoration';
@@ -22,6 +22,7 @@ export default function PetScreen() {
 
   const [userPetData, setUserPetData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showMarketplace, setShowMarketplace] = useState(false);
 
   // Load user pet data from on-chain storage
   useEffect(() => {
@@ -100,6 +101,7 @@ export default function PetScreen() {
         x: 4,
         y: 2,
         scene: 'inside',
+        category: 'furniture',
         component: <Decoration type="chair" rarity="rare" category="furniture" />,
       },
       {
@@ -108,6 +110,7 @@ export default function PetScreen() {
         x: 3,
         y: 4,
         scene: 'inside',
+        category: 'decoration',
         component: <Decoration type="plant" rarity="epic" category="decoration" />,
       },
       {
@@ -116,6 +119,7 @@ export default function PetScreen() {
         x: 5,
         y: 5,
         scene: 'inside',
+        category: 'furniture',
         component: <Decoration type="table" rarity="common" category="furniture" />,
       },
       {
@@ -124,6 +128,7 @@ export default function PetScreen() {
         x: 2,
         y: 3,
         scene: 'inside',
+        category: 'furniture',
         component: <Decoration type="sofa" rarity="rare" category="furniture" />,
       },
       {
@@ -132,11 +137,12 @@ export default function PetScreen() {
         x: 6,
         y: 2,
         scene: 'inside',
+        category: 'furniture',
         component: <Decoration type="bookshelf" rarity="epic" category="furniture" />,
       }
     );
     
-    // Outside items - furniture restricted above y=5, decorations can go anywhere
+    // Outside items - furniture restricted above y=4, decorations can go anywhere
     items.push(
       {
         id: 'deco-tree',
@@ -144,6 +150,7 @@ export default function PetScreen() {
         x: 1,
         y: 4, // Ground level (y=4)
         scene: 'outside',
+        category: 'decoration',
         component: <Decoration type="tree" rarity="common" category="decoration" />,
       },
       {
@@ -152,13 +159,16 @@ export default function PetScreen() {
         x: 6,
         y: 4, // Ground level (y=4)
         scene: 'outside',
+        category: 'decoration',
         component: <Decoration type="rock" rarity="common" category="decoration" />,
       },
       {
         id: 'deco-bush',
         type: 'decoration',
         x: 2,
-        y: 6, // Ground level
+        y: 5, // Slightly above ground
+        scene: 'outside',
+        category: 'decoration',
         component: <Decoration type="bush" rarity="rare" category="decoration" />,
       },
       {
@@ -167,6 +177,7 @@ export default function PetScreen() {
         x: 3,
         y: 4, // Ground level (y=4)
         scene: 'outside',
+        category: 'furniture',
         component: <Decoration type="bench" rarity="common" category="furniture" />,
       },
       {
@@ -175,6 +186,7 @@ export default function PetScreen() {
         x: 4,
         y: 4, // Ground level (y=4)
         scene: 'outside',
+        category: 'furniture',
         component: <Decoration type="fountain" rarity="epic" category="furniture" />,
       },
       {
@@ -183,6 +195,7 @@ export default function PetScreen() {
         x: 5,
         y: 3, // Can be above ground
         scene: 'outside',
+        category: 'decoration',
         component: <Decoration type="flower" rarity="common" category="decoration" />,
       }
     );
@@ -248,30 +261,72 @@ export default function PetScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Pet House with draggable pet */}
-      <PetHouse items={getHouseItems()} onItemMove={handleItemMove} scene="inside" />
-      
-      {/* Pet UI Section - separate from house */}
-      <View style={styles.petUISection}>
-        <ThemedText style={styles.sectionTitle}>Pet Care</ThemedText>
-        <Pet
-          name={userPetData.starterPet.name}
-          type={userPetData.starterPet.type}
-          rarity={userPetData.starterPet.rarity}
-          stats={petState}
-          onPet={handlePet}
-          onFeed={handleFeed}
-          onPlay={handlePlay}
-          draggable={false}
-        />
-      </View>
-    </ScrollView>
+    <View style={styles.container}>
+      {/* Marketplace Icon - Top Right */}
+      <Pressable 
+        style={styles.marketplaceIcon} 
+        onPress={() => setShowMarketplace(true)}
+      >
+        <ThemedText style={styles.marketplaceIconText}>🛒</ThemedText>
+      </Pressable>
+
+      <ScrollView style={styles.scrollContainer}>
+        {/* Pet House with draggable pet */}
+        <PetHouse items={getHouseItems()} onItemMove={handleItemMove} scene="inside" />
+        
+        {/* Pet UI Section - separate from house */}
+        <View style={styles.petUISection}>
+          <ThemedText style={styles.sectionTitle}>Pet Care</ThemedText>
+          <Pet
+            name={userPetData.starterPet.name}
+            type={userPetData.starterPet.type}
+            rarity={userPetData.starterPet.rarity}
+            stats={petState}
+            onPet={handlePet}
+            onFeed={handleFeed}
+            onPlay={handlePlay}
+            draggable={false}
+          />
+        </View>
+      </ScrollView>
+
+      {/* Marketplace Modal */}
+      <Modal
+        visible={showMarketplace}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMarketplace(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Pressable 
+              style={styles.closeButton}
+              onPress={() => setShowMarketplace(false)}
+            >
+              <ThemedText style={styles.closeButtonText}>✕</ThemedText>
+            </Pressable>
+                         <Image 
+               source={require('./browser.png')}
+               style={styles.browserImage}
+               resizeMode="contain"
+             />
+            <ThemedText style={styles.modalTitle}>Marketplace</ThemedText>
+            <ThemedText style={styles.modalSubtitle}>
+              Trade pets and decorations with other players
+            </ThemedText>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    position: 'relative',
+  },
+  scrollContainer: {
     flex: 1,
   },
   loadingText: {
@@ -296,5 +351,72 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
+  },
+  // Marketplace Icon
+  marketplaceIcon: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 50,
+    height: 50,
+    backgroundColor: 'rgba(255, 165, 0, 0.9)',
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  marketplaceIconText: {
+    fontSize: 24,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: '#FDD3E1',
+  },
+  modalContent: {
+    flex: 1,
+    backgroundColor: '#FDD3E1',
+    alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  browserImage: {
+    width: '100%',
+    height: '30%',
+    marginTop: 0,
+    marginLeft: 0,
+    marginRight: 0,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });
