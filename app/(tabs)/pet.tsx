@@ -87,7 +87,7 @@ export default function PetScreen() {
         id: 'user-pet',
         type: 'pet',
         x: 2,
-        y: canPetFly(userPetData.starterPet.type) ? 2 : 4, // Flying pets can be above ground, non-flying at ground level (y=4)
+                 y: canPetFly(userPetData.starterPet.type) ? 2 : 6, // Flying pets can be above ground, non-flying at ground level (y=6)
         scene: 'outside', // Pet can only be outside
         category: 'decoration', // Pets are decorations
         component: (
@@ -159,54 +159,54 @@ export default function PetScreen() {
       {
         id: 'deco-tree',
         type: 'decoration',
-        x: 1,
-        y: 4, // Ground level (y=4)
-        scene: 'outside',
+                 x: 1,
+         y: 6, // Ground level (y=6)
+         scene: 'outside',
         category: 'decoration',
         component: <Decoration type="tree" rarity="common" category="furniture" />,
       },
       {
         id: 'deco-rock',
         type: 'decoration',
-        x: 6,
-        y: 4, // Ground level (y=4)
-        scene: 'outside',
+                 x: 6,
+         y: 6, // Ground level (y=6)
+         scene: 'outside',
         category: 'decoration',
         component: <Decoration type="rock" rarity="common" category="furniture" />,
       },
       {
         id: 'deco-bush',
         type: 'decoration',
-        x: 2,
-        y: 5, // Slightly above ground
-        scene: 'outside',
+                 x: 2,
+         y: 7, // Slightly above ground (y=7)
+         scene: 'outside',
         category: 'decoration',
         component: <Decoration type="bush" rarity="rare" category="furniture" />,
       },
       {
         id: 'deco-bench',
         type: 'decoration',
-        x: 3,
-        y: 4, // Ground level (y=4)
-        scene: 'outside',
+                 x: 3,
+         y: 6, // Ground level (y=6)
+         scene: 'outside',
         category: 'furniture',
         component: <Decoration type="bench" rarity="common" category="furniture" />,
       },
       {
         id: 'deco-fountain',
         type: 'decoration',
-        x: 4,
-        y: 4, // Ground level (y=4)
-        scene: 'outside',
+                 x: 4,
+         y: 6, // Ground level (y=6)
+         scene: 'outside',
         category: 'furniture',
         component: <Decoration type="fountain" rarity="epic" category="furniture" />,
       },
       {
         id: 'deco-flower',
         type: 'decoration',
-        x: 5,
-        y: 3, // Can be above ground
-        scene: 'outside',
+                 x: 5,
+         y: 5, // Can be above ground (y=5)
+         scene: 'outside',
         category: 'decoration',
         component: <Decoration type="flower" rarity="common" category="decoration" />,
       }
