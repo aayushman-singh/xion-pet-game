@@ -53,3 +53,22 @@ export const RARITY_CHANCES = {
   legendary: 4,  // 4%
   mythical: 1,   // 1%
 };
+
+// Flying capabilities for pets
+export const FLYING_PETS = [
+  'bird',
+  'dragon',
+  'phoenix',
+  'pegasus',
+  'unicorn',
+  'eagle',
+  'owl',
+  'bat',
+  'butterfly',
+  'bee',
+] as const;
+
+// Check if a pet can fly based on its type
+export const canPetFly = (petType: string): boolean => {
+  return FLYING_PETS.includes(petType as any);
+};

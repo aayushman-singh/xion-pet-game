@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, Alert } from 'react-native';
+import { ScrollView, StyleSheet, Alert, View } from 'react-native';
 import { Pet } from '@/components/Pet';
 import { PetHouse } from '@/components/PetHouse';
 import { Decoration } from '@/components/Decoration';
 import { ThemedText } from '@/components/ThemedText';
 import { useAbstraxionAccount, useAbstraxionClient } from "@burnt-labs/abstraxion-react-native";
+import { canPetFly } from '@/types/pet';
 
 export default function PetScreen() {
   const { data: account, isConnected } = useAbstraxionAccount();
@@ -67,13 +68,15 @@ export default function PetScreen() {
   const getHouseItems = () => {
     const items = [];
     
-    // Add user's pet if they have one
+    // Add user's pet if they have one (draggable version) - OUTSIDE ONLY
     if (userPetData?.starterPet) {
       items.push({
         id: 'user-pet',
         type: 'pet',
         x: 2,
-        y: 2,
+        y: canPetFly(userPetData.starterPet.type) ? 2 : 4, // Flying pets can be above ground, non-flying at ground level (y=4)
+        scene: 'outside', // Pet can only be outside
+        category: 'decoration', // Pets are decorations
         component: (
           <Pet
             name={userPetData.starterPet.name}
@@ -83,26 +86,104 @@ export default function PetScreen() {
             onPet={handlePet}
             onFeed={handleFeed}
             onPlay={handlePlay}
+            draggable={true}
           />
         ),
       });
     }
     
-    // Add some default decorations
+    // Inside furniture - restricted above y=4
     items.push(
       {
-        id: 'deco-1',
+        id: 'deco-chair',
         type: 'decoration',
         x: 4,
         y: 2,
-        component: <Decoration type="chair" rarity="rare" />,
+        scene: 'inside',
+        component: <Decoration type="chair" rarity="rare" category="furniture" />,
       },
       {
-        id: 'deco-2',
+        id: 'deco-plant',
         type: 'decoration',
         x: 3,
         y: 4,
-        component: <Decoration type="plant" rarity="epic" />,
+        scene: 'inside',
+        component: <Decoration type="plant" rarity="epic" category="decoration" />,
+      },
+      {
+        id: 'deco-table',
+        type: 'decoration',
+        x: 5,
+        y: 5,
+        scene: 'inside',
+        component: <Decoration type="table" rarity="common" category="furniture" />,
+      },
+      {
+        id: 'deco-sofa',
+        type: 'decoration',
+        x: 2,
+        y: 3,
+        scene: 'inside',
+        component: <Decoration type="sofa" rarity="rare" category="furniture" />,
+      },
+      {
+        id: 'deco-bookshelf',
+        type: 'decoration',
+        x: 6,
+        y: 2,
+        scene: 'inside',
+        component: <Decoration type="bookshelf" rarity="epic" category="furniture" />,
+      }
+    );
+    
+    // Outside items - furniture restricted above y=5, decorations can go anywhere
+    items.push(
+      {
+        id: 'deco-tree',
+        type: 'decoration',
+        x: 1,
+        y: 4, // Ground level (y=4)
+        scene: 'outside',
+        component: <Decoration type="tree" rarity="common" category="decoration" />,
+      },
+      {
+        id: 'deco-rock',
+        type: 'decoration',
+        x: 6,
+        y: 4, // Ground level (y=4)
+        scene: 'outside',
+        component: <Decoration type="rock" rarity="common" category="decoration" />,
+      },
+      {
+        id: 'deco-bush',
+        type: 'decoration',
+        x: 2,
+        y: 6, // Ground level
+        component: <Decoration type="bush" rarity="rare" category="decoration" />,
+      },
+      {
+        id: 'deco-bench',
+        type: 'decoration',
+        x: 3,
+        y: 4, // Ground level (y=4)
+        scene: 'outside',
+        component: <Decoration type="bench" rarity="common" category="furniture" />,
+      },
+      {
+        id: 'deco-fountain',
+        type: 'decoration',
+        x: 4,
+        y: 4, // Ground level (y=4)
+        scene: 'outside',
+        component: <Decoration type="fountain" rarity="epic" category="furniture" />,
+      },
+      {
+        id: 'deco-flower',
+        type: 'decoration',
+        x: 5,
+        y: 3, // Can be above ground
+        scene: 'outside',
+        component: <Decoration type="flower" rarity="common" category="decoration" />,
       }
     );
     
@@ -168,7 +249,23 @@ export default function PetScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <PetHouse items={getHouseItems()} onItemMove={handleItemMove} />
+      {/* Pet House with draggable pet */}
+      <PetHouse items={getHouseItems()} onItemMove={handleItemMove} scene="inside" />
+      
+      {/* Pet UI Section - separate from house */}
+      <View style={styles.petUISection}>
+        <ThemedText style={styles.sectionTitle}>Pet Care</ThemedText>
+        <Pet
+          name={userPetData.starterPet.name}
+          type={userPetData.starterPet.type}
+          rarity={userPetData.starterPet.rarity}
+          stats={petState}
+          onPet={handlePet}
+          onFeed={handleFeed}
+          onPlay={handlePlay}
+          draggable={false}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -187,5 +284,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 50,
     opacity: 0.7,
+  },
+  petUISection: {
+    margin: 20,
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: '#f5f5f5',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
   },
 });

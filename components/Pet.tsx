@@ -23,6 +23,7 @@ interface PetProps {
   onPet?: () => void;
   onFeed?: () => void;
   onPlay?: () => void;
+  draggable?: boolean; // New prop to control if pet is draggable
 }
 
 export function Pet({
@@ -33,6 +34,7 @@ export function Pet({
   onPet,
   onFeed,
   onPlay,
+  draggable = false,
 }: PetProps) {
   // Animation values
   const scale = useSharedValue(1);
@@ -95,6 +97,18 @@ export function Pet({
     onPlay?.();
   };
 
+  // If draggable, only return the pet sprite without container
+  if (draggable) {
+    return (
+      <Pressable onPress={handlePet}>
+        <Animated.View style={[styles.pet, petStyle]}>
+          <PetSVG type={type} size={120} isAnimating={true} />
+        </Animated.View>
+      </Pressable>
+    );
+  }
+
+  // Full pet component with UI
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <ThemedText style={styles.name}>{name}</ThemedText>
@@ -105,11 +119,11 @@ export function Pet({
         </Animated.View>
       </Pressable>
 
-             <View style={styles.stats}>
-         <ThemedText>❤️ {stats.happiness}%</ThemedText>
-         <ThemedText>⚡ {stats.energy}%</ThemedText>
-         <ThemedText>🍖 {stats.hunger}%</ThemedText>
-       </View>
+      <View style={styles.stats}>
+        <ThemedText>❤️ {stats.happiness}%</ThemedText>
+        <ThemedText>⚡ {stats.energy}%</ThemedText>
+        <ThemedText>🍖 {stats.hunger}%</ThemedText>
+      </View>
 
       <View style={styles.actions}>
         <Pressable onPress={handleFeed} style={styles.button}>

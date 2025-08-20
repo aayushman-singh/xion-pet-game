@@ -7,6 +7,7 @@ interface DecorationProps {
   type: string;
   rarity?: 'common' | 'rare' | 'epic' | 'legendary';
   size?: number;
+  category: 'furniture' | 'decoration'; // New: furniture vs decoration
 }
 
 export function Decoration({ type, rarity = 'common', size = 40 }: DecorationProps) {
@@ -30,6 +31,7 @@ export function Decoration({ type, rarity = 'common', size = 40 }: DecorationPro
   // Get decoration emoji based on type
   const getDecorationEmoji = () => {
     switch (type) {
+      // Indoor furniture
       case 'chair':
         return '🪑';
       case 'table':
@@ -40,6 +42,32 @@ export function Decoration({ type, rarity = 'common', size = 40 }: DecorationPro
         return '💡';
       case 'bed':
         return '🛏️';
+      case 'sofa':
+        return '🛋️';
+      case 'bookshelf':
+        return '📚';
+      case 'mirror':
+        return '🪞';
+      // Outdoor furniture
+      case 'bench':
+        return '🪑';
+      case 'fountain':
+        return '⛲';
+      case 'statue':
+        return '🗿';
+      case 'gazebo':
+        return '🏛️';
+      // Outdoor nature (decorations)
+      case 'tree':
+        return '🌳';
+      case 'rock':
+        return '🪨';
+      case 'bush':
+        return '🌱';
+      case 'flower':
+        return '🌸';
+      case 'mushroom':
+        return '🍄';
       default:
         return '📦';
     }
