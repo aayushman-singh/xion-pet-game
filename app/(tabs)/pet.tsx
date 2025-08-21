@@ -28,6 +28,8 @@ export default function PetScreen() {
   const [isMinting, setIsMinting] = useState(false);
   const [mintStatus, setMintStatus] = useState<string>('');
   const [availableNFTs, setAvailableNFTs] = useState<any[]>([]);
+  const [userBalance, setUserBalance] = useState<string>('0');
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
 
   // Load user pet data from on-chain storage
   useEffect(() => {
@@ -70,6 +72,35 @@ export default function PetScreen() {
     loadUserPetData();
   }, [account, queryClient]);
 
+  // Load user balance
+  useEffect(() => {
+    const loadBalance = async () => {
+      if (!account?.bech32Address || !queryClient) {
+        setUserBalance('0');
+        setIsLoadingBalance(false);
+        return;
+      }
+      
+      setIsLoadingBalance(true);
+      try {
+        // Query user's XION balance
+        const balance = await queryClient.getBalance(account.bech32Address, 'uxion');
+        if (balance && balance.amount) {
+          setUserBalance(balance.amount);
+        } else {
+          setUserBalance('0');
+        }
+      } catch (error) {
+        console.error('Error loading balance:', error);
+        setUserBalance('0');
+      } finally {
+        setIsLoadingBalance(false);
+      }
+    };
+
+    loadBalance();
+  }, [account?.bech32Address, queryClient]);
+
   // Load available NFTs when marketplace opens
   useEffect(() => {
     if (showMarketplace && activeTab === 'trade') {
@@ -109,7 +140,7 @@ export default function PetScreen() {
     items.push(
       {
         id: 'deco-chair',
-        type: 'decoration',
+        type: 'decoration' as const,
         x: 4,
         y: 2,
         scene: 'inside',
@@ -118,7 +149,7 @@ export default function PetScreen() {
       },
       {
         id: 'deco-plant',
-        type: 'decoration',
+        type: 'decoration' as const,
         x: 3,
         y: 4,
         scene: 'inside',
@@ -127,7 +158,7 @@ export default function PetScreen() {
       },
       {
         id: 'deco-table',
-        type: 'decoration',
+        type: 'decoration' as const,
         x: 5,
         y: 5,
         scene: 'inside',
@@ -136,7 +167,7 @@ export default function PetScreen() {
       },
       {
         id: 'deco-sofa',
-        type: 'decoration',
+        type: 'decoration' as const,
         x: 2,
         y: 3,
         scene: 'inside',
@@ -145,7 +176,7 @@ export default function PetScreen() {
       },
       {
         id: 'deco-bookshelf',
-        type: 'decoration',
+        type: 'decoration' as const,
         x: 6,
         y: 2,
         scene: 'inside',
@@ -158,7 +189,7 @@ export default function PetScreen() {
     items.push(
       {
         id: 'deco-tree',
-        type: 'decoration',
+        type: 'decoration' as const,
                  x: 1,
          y: 6, // Ground level (y=6)
          scene: 'outside',
@@ -167,25 +198,25 @@ export default function PetScreen() {
       },
       {
         id: 'deco-rock',
-        type: 'decoration',
+        type: 'decoration' as const,
                  x: 6,
          y: 6, // Ground level (y=6)
          scene: 'outside',
         category: 'decoration',
-        component: <Decoration type="rock" rarity="common" category="furniture" />,
+        component: <Decoration type="rock" rarity="common" category="decoration" />,
       },
       {
         id: 'deco-bush',
-        type: 'decoration',
+        type: 'decoration' as const,
                  x: 2,
          y: 7, // Slightly above ground (y=7)
          scene: 'outside',
         category: 'decoration',
-        component: <Decoration type="bush" rarity="rare" category="furniture" />,
+        component: <Decoration type="bush" rarity="rare" category="decoration" />,
       },
       {
         id: 'deco-bench',
-        type: 'decoration',
+        type: 'decoration' as const,
                  x: 3,
          y: 6, // Ground level (y=6)
          scene: 'outside',
@@ -194,7 +225,7 @@ export default function PetScreen() {
       },
       {
         id: 'deco-fountain',
-        type: 'decoration',
+        type: 'decoration' as const,
                  x: 4,
          y: 6, // Ground level (y=6)
          scene: 'outside',
@@ -203,7 +234,7 @@ export default function PetScreen() {
       },
       {
         id: 'deco-flower',
-        type: 'decoration',
+        type: 'decoration' as const,
                  x: 5,
          y: 5, // Can be above ground (y=5)
          scene: 'outside',
@@ -251,22 +282,40 @@ export default function PetScreen() {
       return;
     }
 
+    // Check if user has enough balance
+    const requiredAmount = getMintPrice(type);
+    const currentBalance = parseInt(userBalance) / 1000000; // Convert uxion to XION
+    
+    if (currentBalance < requiredAmount) {
+      Alert.alert('Insufficient Balance', `You need ${requiredAmount} XION to mint this NFT. Current balance: ${currentBalance.toFixed(2)} XION`);
+      return;
+    }
+
     setIsMinting(true);
-    setMintStatus('Preparing transaction...');
+    setMintStatus('Minting NFT...');
 
     try {
       const contractAddress = process.env.EXPO_PUBLIC_PET_NFT_CONTRACT_ADDRESS;
       if (!contractAddress) {
-        throw new Error('NFT contract address not configured');
+        // For hackathon demo - simulate successful minting
+        setMintStatus('Demo: NFT would be minted! 🎉');
+        setTimeout(() => {
+          Alert.alert(
+            'Demo Mode', 
+            'This is a demo! In production, you would need to deploy an NFT contract and add EXPO_PUBLIC_PET_NFT_CONTRACT_ADDRESS to your .env.local file.',
+            [{ text: 'OK' }]
+          );
+        }, 1000);
+        return;
       }
 
-      // Generate random NFT data based on type
       const nftData = generateNFTData(type);
       
+      // Mint NFT with payment
       const msg = {
-        mint_nft: {
+        mint: {
+          token_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           owner: account.bech32Address,
-          token_id: `${type}_${Date.now()}`,
           token_uri: JSON.stringify(nftData),
           extension: {
             name: nftData.name,
@@ -277,37 +326,60 @@ export default function PetScreen() {
         }
       };
 
-      setMintStatus('Signing transaction...');
+      // Convert XION to uxion (1 XION = 1,000,000 uxion)
+      const uxionAmount = Math.floor(requiredAmount * 1000000);
       
       const result = await signingClient.execute(
         account.bech32Address,
         contractAddress,
         msg,
-        'auto'
+        'auto',
+        undefined,
+        [{ amount: uxionAmount.toString(), denom: 'uxion' }] // Payment
       );
 
-      setMintStatus('Transaction successful! 🎉');
-      Alert.alert('Success', `NFT ${nftData.name} minted successfully!`);
-      
-      // Refresh available NFTs
+      setMintStatus('NFT minted successfully! 🎉');
       loadAvailableNFTs();
       
+             // Refresh balance
+       if (queryClient) {
+         const newBalance = await queryClient.getBalance(account.bech32Address, 'uxion');
+         setUserBalance(newBalance.amount || '0');
+       }
+      
     } catch (error) {
-      console.error('Minting error:', error);
-      setMintStatus('Transaction failed');
-      Alert.alert('Error', 'Failed to mint NFT. Please try again.');
+      console.error('Mint error:', error);
+      setMintStatus('Failed to mint NFT. Please try again.');
     } finally {
       setIsMinting(false);
       setTimeout(() => setMintStatus(''), 3000);
     }
   };
 
+  const getMintPrice = (type: 'pet' | 'furniture' | 'decoration'): number => {
+    switch (type) {
+      case 'pet': return 0.5; // 0.5 XION - affordable for hackathon
+      case 'furniture': return 0.3; // 0.3 XION - cheap furniture
+      case 'decoration': return 0.2; // 0.2 XION - very cheap decorations
+      default: return 0.3;
+    }
+  };
+
   const generateNFTData = (type: 'pet' | 'furniture' | 'decoration') => {
-    const petTypes = ['cat', 'dog', 'bird', 'dragon', 'unicorn'];
-    const furnitureTypes = ['chair', 'table', 'sofa', 'bookshelf', 'lamp'];
-    const decorationTypes = ['plant', 'flower', 'tree', 'rock', 'fountain'];
+    const petTypes = [
+      'cat', 'dog', 'bird', 'dragon', 'unicorn', 'phoenix', 'pegasus', 
+      'eagle', 'owl', 'bat', 'butterfly', 'bee', 'rabbit', 'fox', 'wolf'
+    ];
+    const furnitureTypes = [
+      'chair', 'table', 'sofa', 'bookshelf', 'lamp', 'bed', 'desk', 
+      'cabinet', 'mirror', 'rug', 'curtain', 'vase', 'clock', 'painting'
+    ];
+    const decorationTypes = [
+      'plant', 'flower', 'tree', 'rock', 'fountain', 'statue', 'bush',
+      'crystal', 'gem', 'orb', 'candle', 'book', 'scroll', 'trophy'
+    ];
     
-    const rarities = ['common', 'rare', 'epic', 'legendary'];
+    const rarities = ['common', 'rare', 'epic', 'legendary', 'mythical'];
     const rarity = rarities[Math.floor(Math.random() * rarities.length)];
     
     let name, description, image, typeValue;
@@ -316,19 +388,19 @@ export default function PetScreen() {
       case 'pet':
         typeValue = petTypes[Math.floor(Math.random() * petTypes.length)];
         name = `${rarity.charAt(0).toUpperCase() + rarity.slice(1)} ${typeValue.charAt(0).toUpperCase() + typeValue.slice(1)}`;
-        description = `A ${rarity} ${typeValue} pet with unique abilities`;
+        description = `A ${rarity} ${typeValue} pet with unique abilities and personality`;
         image = `https://api.example.com/pets/${typeValue}.png`;
         break;
       case 'furniture':
         typeValue = furnitureTypes[Math.floor(Math.random() * furnitureTypes.length)];
         name = `${rarity.charAt(0).toUpperCase() + rarity.slice(1)} ${typeValue.charAt(0).toUpperCase() + typeValue.slice(1)}`;
-        description = `A ${rarity} piece of furniture for your house`;
+        description = `A ${rarity} piece of furniture that adds comfort and style to your house`;
         image = `https://api.example.com/furniture/${typeValue}.png`;
         break;
       case 'decoration':
         typeValue = decorationTypes[Math.floor(Math.random() * decorationTypes.length)];
         name = `${rarity.charAt(0).toUpperCase() + rarity.slice(1)} ${typeValue.charAt(0).toUpperCase() + typeValue.slice(1)}`;
-        description = `A ${rarity} decoration to beautify your space`;
+        description = `A ${rarity} decoration that beautifies your space with magical properties`;
         image = `https://api.example.com/decorations/${typeValue}.png`;
         break;
     }
@@ -342,7 +414,8 @@ export default function PetScreen() {
       attributes: [
         { trait_type: 'Type', value: typeValue },
         { trait_type: 'Rarity', value: rarity },
-        { trait_type: 'Created', value: new Date().toISOString() }
+        { trait_type: 'Created', value: new Date().toISOString() },
+        { trait_type: 'Category', value: type }
       ]
     };
   };
@@ -393,7 +466,13 @@ export default function PetScreen() {
     try {
       const contractAddress = process.env.EXPO_PUBLIC_PET_NFT_CONTRACT_ADDRESS;
       if (!contractAddress) {
-        throw new Error('NFT contract address not configured');
+        // For hackathon demo - simulate successful purchase
+        Alert.alert(
+          'Demo Mode', 
+          'This is a demo! In production, you would need to deploy an NFT contract and add EXPO_PUBLIC_PET_NFT_CONTRACT_ADDRESS to your .env.local file.',
+          [{ text: 'OK' }]
+        );
+        return;
       }
 
       const msg = {
@@ -452,7 +531,11 @@ export default function PetScreen() {
       {/* Marketplace Icon - Top Right */}
       <Pressable 
         style={styles.marketplaceIcon} 
-        onPress={() => setShowMarketplace(true)}
+        onPress={() => {
+          console.log('Marketplace button pressed, current state:', showMarketplace);
+          setShowMarketplace(true);
+          console.log('Marketplace state set to true');
+        }}
       >
         <ThemedText style={styles.marketplaceIconText}>🛒</ThemedText>
       </Pressable>
@@ -483,6 +566,7 @@ export default function PetScreen() {
          transparent={true}
          animationType="fade"
          onRequestClose={() => setShowMarketplace(false)}
+         onShow={() => console.log('Modal shown, showMarketplace:', showMarketplace)}
        >
                   <View style={styles.modalOverlay}>
            <View style={styles.modalContent}>
@@ -539,7 +623,7 @@ export default function PetScreen() {
                      >
                        <ThemedText style={styles.mintEmoji}>🐱</ThemedText>
                        <ThemedText style={styles.mintTitle}>Pet NFT</ThemedText>
-                       <ThemedText style={styles.mintPrice}>100 XION</ThemedText>
+                       <ThemedText style={styles.mintPrice}>0.5 XION</ThemedText>
                        {isMinting && <ThemedText style={styles.loadingText}>⏳</ThemedText>}
                      </Pressable>
                      <Pressable 
@@ -549,7 +633,7 @@ export default function PetScreen() {
                      >
                        <ThemedText style={styles.mintEmoji}>🪑</ThemedText>
                        <ThemedText style={styles.mintTitle}>Furniture NFT</ThemedText>
-                       <ThemedText style={styles.mintPrice}>50 XION</ThemedText>
+                       <ThemedText style={styles.mintPrice}>0.3 XION</ThemedText>
                        {isMinting && <ThemedText style={styles.loadingText}>⏳</ThemedText>}
                      </Pressable>
                      <Pressable 
@@ -559,7 +643,7 @@ export default function PetScreen() {
                      >
                        <ThemedText style={styles.mintEmoji}>🌿</ThemedText>
                        <ThemedText style={styles.mintTitle}>Decoration NFT</ThemedText>
-                       <ThemedText style={styles.mintPrice}>30 XION</ThemedText>
+                       <ThemedText style={styles.mintPrice}>0.2 XION</ThemedText>
                        {isMinting && <ThemedText style={styles.loadingText}>⏳</ThemedText>}
                      </Pressable>
                    </View>
@@ -599,6 +683,14 @@ export default function PetScreen() {
                    </View>
                  </View>
                )}
+               
+               {/* User Balance Display - Bottom Right */}
+               <View style={styles.balanceContainerBottom}>
+                 <ThemedText style={styles.balanceLabelBottom}>Balance:</ThemedText>
+                 <ThemedText style={styles.balanceAmountBottom}>
+                   {isLoadingBalance ? 'Loading...' : `${parseInt(userBalance) / 1000000} XION`}
+                 </ThemedText>
+               </View>
            </View>
          </View>
        </Modal>
@@ -882,5 +974,55 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     color: '#9B6B8A',
+  },
+  // Balance Display Styles
+  balanceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F0F8FF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E0E8F0',
+  },
+  balanceLabel: {
+    fontSize: 14,
+    color: '#4A5568',
+    fontWeight: '500',
+  },
+  balanceAmount: {
+    fontSize: 16,
+    color: '#2D3748',
+    fontWeight: 'bold',
+  },
+  // Bottom Right Balance Display Styles
+  balanceContainerBottom: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  balanceLabelBottom: {
+    fontSize: 12,
+    color: '#4A5568',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  balanceAmountBottom: {
+    fontSize: 14,
+    color: '#2D3748',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
