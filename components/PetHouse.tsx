@@ -156,21 +156,27 @@ interface DraggableItemProps {
 function DraggableItem({ item, onMove, onDragStateChange, gridSize, cellSize, currentScene }: DraggableItemProps) {
   const translateX = useSharedValue(item.x * cellSize);
   const translateY = useSharedValue(item.y * cellSize);
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
 
   const gesture = Gesture.Pan()
     .onBegin(() => {
+      // Store the initial position when drag starts
+      startX.value = translateX.value;
+      startY.value = translateY.value;
       if (onDragStateChange) {
         runOnJS(onDragStateChange)(true);
       }
     })
     .onUpdate((e) => {
-      translateX.value = item.x * cellSize + e.translationX;
-      translateY.value = item.y * cellSize + e.translationY;
+      // Use the stored initial position plus the translation
+      translateX.value = startX.value + e.translationX;
+      translateY.value = startY.value + e.translationY;
     })
     .onEnd((e) => {
-      // Snap to grid
-      let newX = Math.max(0, Math.min(gridSize - 1, Math.round((item.x * cellSize + e.translationX) / cellSize)));
-      let newY = Math.max(0, Math.min(gridSize - 1, Math.round((item.y * cellSize + e.translationY) / cellSize)));
+      // Snap to grid using the final position
+      let newX = Math.max(0, Math.min(gridSize - 1, Math.round((startX.value + e.translationX) / cellSize)));
+      let newY = Math.max(0, Math.min(gridSize - 1, Math.round((startY.value + e.translationY) / cellSize)));
       
       // Enforce height restrictions based on category and scene
       if (item.category === 'furniture') {

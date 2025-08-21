@@ -5,7 +5,7 @@ import { useThemeColor } from '../hooks/useThemeColor';
 
 interface DecorationProps {
   type: string;
-  rarity?: 'common' | 'rare' | 'epic' | 'legendary';
+  rarity?: 'common' | 'rare' | 'epic' | 'legendary' | 'mythical';
   size?: number;
   category: 'furniture' | 'decoration'; // New: furniture vs decoration
 }
@@ -13,6 +13,24 @@ interface DecorationProps {
 export function Decoration({ type, rarity = 'common', size = 40, category }: DecorationProps) {
   const backgroundColor = useThemeColor('background');
   const textColor = useThemeColor('text');
+
+  // Get rarity shadow color and size
+  const getRarityShadow = () => {
+    switch (rarity) {
+      case 'common':
+        return { color: 'rgba(34, 197, 94, 0.2)', size: size * 1.05 }; // Green
+      case 'rare':
+        return { color: 'rgba(59, 130, 246, 0.3)', size: size * 1.08 }; // Blue
+      case 'epic':
+        return { color: 'rgba(147, 51, 234, 0.4)', size: size * 1.1 }; // Purple
+      case 'legendary':
+        return { color: 'rgba(245, 158, 11, 0.5)', size: size * 1.12 }; // Gold
+      case 'mythical':
+        return { color: 'rgba(236, 72, 153, 0.6)', size: size * 1.15 }; // Pink/Magenta
+      default:
+        return { color: 'rgba(34, 197, 94, 0.2)', size: size * 1.05 };
+    }
+  };
 
   // Get decoration color based on rarity
   const getRarityColor = () => {
@@ -85,31 +103,64 @@ export function Decoration({ type, rarity = 'common', size = 40, category }: Dec
     }
   };
 
+  const shadowStyle = getRarityShadow();
+
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor,
-          borderColor: getCategoryBorderColor(),
-          width: size,
-          height: size,
-        },
-      ]}
-    >
-      <ThemedText style={styles.emoji}>{getDecorationEmoji()}</ThemedText>
+    <View style={styles.container}>
+      {/* Rarity Shadow */}
+      <View 
+        style={[
+          styles.rarityShadow, 
+          { 
+            width: shadowStyle.size, 
+            height: shadowStyle.size, 
+            backgroundColor: shadowStyle.color,
+            borderRadius: shadowStyle.size / 2,
+          }
+        ]} 
+      />
+      
+      <View
+        style={[
+          styles.decorationContainer,
+          {
+            backgroundColor,
+            borderColor: getCategoryBorderColor(),
+            width: size,
+            height: size,
+          },
+        ]}
+      >
+        <ThemedText style={styles.emoji}>{getDecorationEmoji()}</ThemedText>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  decorationContainer: {
     borderRadius: 8,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'absolute',
+    zIndex: 2,
   },
   emoji: {
     fontSize: 20,
+  },
+  rarityShadow: {
+    position: 'absolute',
+    zIndex: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
 });

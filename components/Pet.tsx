@@ -102,7 +102,7 @@ export function Pet({
     return (
       <Pressable onPress={handlePet}>
         <Animated.View style={[styles.pet, petStyle]}>
-          <PetSVG type={type} size={120} isAnimating={true} />
+          <PetSVG type={type} size={120} isAnimating={true} rarity={rarity} />
         </Animated.View>
       </Pressable>
     );
@@ -115,7 +115,7 @@ export function Pet({
       
       <Pressable onPress={handlePet}>
         <Animated.View style={[styles.pet, petStyle]}>
-          <PetSVG type={type} size={120} isAnimating={true} />
+          <PetSVG type={type} size={120} isAnimating={true} rarity={rarity} />
         </Animated.View>
       </Pressable>
 
