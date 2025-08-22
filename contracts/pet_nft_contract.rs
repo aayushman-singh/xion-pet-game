@@ -173,3 +173,4 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
     }
 }
+

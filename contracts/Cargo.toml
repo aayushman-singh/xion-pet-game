@@ -18,3 +18,4 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 [dev-dependencies]
 anyhow = "1.0"
 cosmwasm-storage = "1.4"
+

@@ -11,18 +11,17 @@ import Animated, {
 import { ThemedText } from './ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { PetSVG } from './PetSVG';
+import { usePetCare } from '../hooks/usePetCare';
 
-import { Pet as PetType, PetRarity, PetStats } from '../types/pet';
+import { Pet as PetType, PetRarity, PetStats, PetStatus } from '../types/pet';
 import { PetRarity as PetRarityComponent } from './PetRarity';
 
 interface PetProps {
   name: string;
   type: string;
   rarity: PetRarity;
-  stats: PetStats;
+  status: PetStatus;
   onPet?: () => void;
-  onFeed?: () => void;
-  onPlay?: () => void;
   draggable?: boolean; // New prop to control if pet is draggable
 }
 
@@ -30,12 +29,19 @@ export function Pet({
   name,
   type,
   rarity,
-  stats,
+  status: initialStatus,
   onPet,
-  onFeed,
-  onPlay,
   draggable = false,
 }: PetProps) {
+  const {
+    status,
+    isLoading,
+    error,
+    feedCooldown,
+    playCooldown,
+    performAction,
+    getStatusDescription
+  } = usePetCare(initialStatus);
   // Animation values
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
@@ -88,13 +94,17 @@ export function Pet({
   };
 
   const handleFeed = () => {
-    playFeedAnimation();
-    onFeed?.();
+    if (feedCooldown === 0) {
+      playFeedAnimation();
+      performAction({ type: 'feed', timestamp: Date.now(), petId: status.petId });
+    }
   };
 
   const handlePlay = () => {
-    playBounceAnimation();
-    onPlay?.();
+    if (playCooldown === 0) {
+      playBounceAnimation();
+      performAction({ type: 'play', timestamp: Date.now(), petId: status.petId });
+    }
   };
 
   // If draggable, only return the pet sprite without container
@@ -119,19 +129,42 @@ export function Pet({
         </Animated.View>
       </Pressable>
 
-      <View style={styles.stats}>
-        <ThemedText>❤️ {stats.happiness}%</ThemedText>
-        <ThemedText>⚡ {stats.energy}%</ThemedText>
-        <ThemedText>🍖 {stats.hunger}%</ThemedText>
+      <View style={styles.status}>
+        <ThemedText style={styles.mood}>{getStatusDescription()}</ThemedText>
+        <View style={styles.stats}>
+          <ThemedText>❤️ {status.happiness}%</ThemedText>
+          <ThemedText>⚡ {status.energy}%</ThemedText>
+        </View>
       </View>
 
       <View style={styles.actions}>
-        <Pressable onPress={handleFeed} style={styles.button}>
-          <ThemedText>Feed</ThemedText>
-        </Pressable>
-        <Pressable onPress={handlePlay} style={styles.button}>
-          <ThemedText>Play</ThemedText>
-        </Pressable>
+        <View style={styles.actionContainer}>
+          <Pressable 
+            onPress={handleFeed} 
+            style={[styles.button, feedCooldown > 0 && styles.buttonDisabled]}
+            disabled={feedCooldown > 0}
+          >
+            <ThemedText>Feed</ThemedText>
+            {feedCooldown > 0 && (
+              <ThemedText style={styles.cooldown}>
+                {Math.ceil(feedCooldown / 1000)}s
+              </ThemedText>
+            )}
+          </Pressable>
+          <Pressable 
+            onPress={handlePlay} 
+            style={[styles.button, playCooldown > 0 && styles.buttonDisabled]}
+            disabled={playCooldown > 0}
+          >
+            <ThemedText>Play</ThemedText>
+            {playCooldown > 0 && (
+              <ThemedText style={styles.cooldown}>
+                {Math.ceil(playCooldown / 1000)}s
+              </ThemedText>
+            )}
+          </Pressable>
+        </View>
+        {error && <ThemedText style={styles.error}>{error}</ThemedText>}
       </View>
     </View>
   );
@@ -162,23 +195,52 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
   },
+  status: {
+    alignItems: 'center',
+    width: '100%',
+    marginVertical: 10,
+  },
+  mood: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
   stats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginVertical: 20,
+    marginVertical: 10,
   },
   actions: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  actionContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
+    marginBottom: 10,
   },
   button: {
-    padding: 10,
+    padding: 15,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ccc',
-    minWidth: 80,
+    minWidth: 100,
     alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+    backgroundColor: '#f0f0f0',
+  },
+  cooldown: {
+    fontSize: 12,
+    marginTop: 5,
+    opacity: 0.7,
+  },
+  error: {
+    color: '#ff4444',
+    fontSize: 12,
+    marginTop: 5,
   },
 });
