@@ -58,6 +58,17 @@ pub struct Metadata {
     pub description: String,
     pub image: String,
     pub attributes: Vec<Attribute>,
+    pub zktls_proof: Option<ZkTLSProof>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ZkTLSProof {
+    pub id: String,
+    pub proof_type: String,
+    pub signature: String,
+    pub timestamp: u64,
+    pub data_hash: String,
+    pub verified: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -102,6 +113,15 @@ pub fn execute(
     match msg {
         ExecuteMsg::Mint { token_id, owner, token_uri, extension } => {
             let owner_addr = deps.api.addr_validate(&owner)?;
+            
+            // Validate zkTLS proof if provided in metadata
+            if let Some(ref metadata) = extension {
+                if let Some(ref proof) = metadata.zktls_proof {
+                    if !validate_zktls_proof(proof)? {
+                        return Err(ContractError::InvalidProof {});
+                    }
+                }
+            }
             
             let mint_msg = cw721_base::ExecuteMsg::Mint {
                 token_id: token_id.clone(),
@@ -174,3 +194,30 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
+// Helper functions
+fn validate_zktls_proof(proof: &ZkTLSProof) -> Result<bool, ContractError> {
+    // Basic validation - in a real implementation, this would verify the cryptographic proof
+    if proof.signature.is_empty() || proof.data_hash.is_empty() {
+        return Ok(false);
+    }
+    
+    // Timestamp should be within reasonable bounds (not too old, not in future)
+    let current_time = cosmwasm_std::Timestamp::default().seconds();
+    if proof.timestamp > current_time + 300 { // 5 minutes future tolerance
+        return Ok(false);
+    }
+    
+    Ok(true)
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ContractError {
+    #[error("{0}")]
+    Std(#[from] cosmwasm_std::StdError),
+
+    #[error("{0}")]
+    Base(#[from] cw721_base::ContractError),
+
+    #[error("Invalid zkTLS proof")]
+    InvalidProof {},
+}

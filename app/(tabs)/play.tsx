@@ -4,8 +4,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAbstraxionAccount } from "@burnt-labs/abstraxion-react-native";
 import { PetSVG } from '@/components/PetSVG';
-import { XIONVerificationService } from '@/services/verification';
-import type { GameScore } from '@/types/achievements';
+import { GameVerificationService } from '@/services/gameVerification';
+import type { GameScore, GameSession } from '@/types/achievements';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -39,6 +39,9 @@ export default function PlayScreen() {
     isPlaying: false,
     gameOver: false,
   });
+  
+  const gameVerification = useRef(new GameVerificationService()).current;
+  const currentSession = useRef<GameSession | null>(null);
 
   // Mock pets data - replace with your actual pets data
   const availablePets = [
@@ -123,10 +126,11 @@ export default function PlayScreen() {
       }
     });
 
-    // Update score based on height reached
-    const newScore = Math.floor((SCREEN_HEIGHT - newY) / 10);
-    if (newScore > gameState.score) {
-      setGameState(prev => ({ ...prev, score: newScore }));
+    // Update score and verify height reached
+    const currentHeight = Math.floor((SCREEN_HEIGHT - newY) / 10);
+    if (currentHeight > gameState.score) {
+      setGameState(prev => ({ ...prev, score: currentHeight }));
+      gameVerification.updateMaxHeight(currentHeight);
     }
 
     // Game over condition
@@ -174,25 +178,48 @@ export default function PlayScreen() {
     }
   };
 
-  const handlePetSwap = (pet: PetType) => {
+  const handlePetSwap = async (pet: PetType) => {
     if (gameState.isPlaying) {
-      setActivePet(pet);
-      // Here we'll add pet-specific bonuses later
+      try {
+        const currentHeight = Math.floor((SCREEN_HEIGHT - playerPos.y._value) / 10);
+        const swapAction = await gameVerification.swapActivePet(pet.id, currentHeight);
+        console.log('Pet swap verified:', swapAction);
+        setActivePet(pet);
+        // Here we'll add pet-specific bonuses later
+      } catch (error) {
+        console.error('Failed to verify pet swap:', error);
+      }
     }
   };
 
-  const startGame = () => {
+  const startGame = async () => {
     if (!activePet || selectedPets.length === 0) return;
-    initializePlatforms();
-    setGameState({
-      score: 0,
-      highScore: gameState.highScore,
-      isPlaying: true,
-      gameOver: false,
-    });
-    velocity.current = { x: 0, y: 0 };
-    playerPos.setValue({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 });
-    animationFrame.current = requestAnimationFrame(gameLoop);
+    
+    try {
+      // Start new game session with zkTLS verification
+      const session = await gameVerification.startGameSession(selectedPets);
+      currentSession.current = session;
+      console.log('Game session started:', session);
+
+      initializePlatforms();
+      setGameState({
+        score: 0,
+        highScore: gameState.highScore,
+        isPlaying: true,
+        gameOver: false,
+      });
+      velocity.current = { x: 0, y: 0 };
+      playerPos.setValue({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 });
+      animationFrame.current = requestAnimationFrame(gameLoop);
+    } catch (error) {
+      console.error('Failed to start game session:', error);
+      // Handle session start failure
+      Alert.alert(
+        'Error',
+        'Failed to start game session. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const endGame = async () => {
@@ -200,34 +227,35 @@ export default function PlayScreen() {
       cancelAnimationFrame(animationFrame.current);
     }
     
+    const finalScore = gameState.score;
     setGameState(prev => ({
       ...prev,
       isPlaying: false,
       gameOver: true,
-      highScore: Math.max(prev.highScore, prev.score),
+      highScore: Math.max(prev.highScore, finalScore),
     }));
 
     // Verify and record the score
-    if (account?.bech32Address && selectedPet) {
+    if (account?.bech32Address && currentSession.current) {
       try {
-        const gameScore: GameScore = {
-          petId: selectedPet.id,
-          score: gameState.score,
-          gameType: 'doodleJump',
-          metadata: {
-            heightReached: gameState.score * 10,
-            powerupsCollected: 0,
-            timeSpent: 0,
-          },
-          timestamp: Date.now(),
-          signature: '',
-          proof: null,
-        };
+        // End game session with verification
+        const finalSession = await gameVerification.endGameSession(finalScore);
+        console.log('Game session ended:', finalSession);
 
-        const proof = await verificationService.verifyGameScore(gameScore);
-        console.log('Score verified:', proof);
+        // Verify final score
+        const verifiedScore = await gameVerification.verifyGameScore(finalScore, finalSession);
+        console.log('Score verified:', verifiedScore);
+
+        // Reset session
+        currentSession.current = null;
+
       } catch (error) {
-        console.error('Failed to verify score:', error);
+        console.error('Failed to verify game session:', error);
+        Alert.alert(
+          'Warning',
+          'Failed to verify game session. Your score might not be recorded.',
+          [{ text: 'OK' }]
+        );
       }
     }
   };

@@ -62,8 +62,16 @@ export function PetSelector({
               />
               <ThemedText style={styles.petName}>{pet.name}</ThemedText>
               <ThemedText style={styles.petRarity}>{pet.rarity}</ThemedText>
-              {/* We'll add bonus info later */}
-              <ThemedText style={styles.petBonus}>+10% Jump</ThemedText>
+              {PET_BONUSES[pet.type]?.activeBonus && (
+                <ThemedText style={styles.petBonus}>
+                  {PET_BONUSES[pet.type].activeBonus.description}
+                </ThemedText>
+              )}
+              {PET_BONUSES[pet.type]?.passiveBonus && (
+                <ThemedText style={[styles.petBonus, styles.passiveBonus]}>
+                  + {PET_BONUSES[pet.type].passiveBonus.description}
+                </ThemedText>
+              )}
             </Pressable>
           );
         })}
