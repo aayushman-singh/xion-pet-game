@@ -20,8 +20,11 @@ interface PetProps {
   name: string;
   type: string;
   rarity: PetRarity;
-  status: PetStatus;
+  status?: PetStatus;
+  stats?: PetStatus; // Alternative prop name for compatibility
   onPet?: () => void;
+  onFeed?: () => void;
+  onPlay?: () => void;
   draggable?: boolean; // New prop to control if pet is draggable
 }
 
@@ -30,9 +33,14 @@ export function Pet({
   type,
   rarity,
   status: initialStatus,
+  stats,
   onPet,
+  onFeed,
+  onPlay,
   draggable = false,
 }: PetProps) {
+  // Use status prop if available, otherwise fall back to stats prop
+  const petStatus = initialStatus || stats;
   const {
     status,
     isLoading,
@@ -41,7 +49,7 @@ export function Pet({
     playCooldown,
     performAction,
     getStatusDescription
-  } = usePetCare(initialStatus);
+  } = usePetCare(petStatus);
   // Animation values
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
@@ -94,16 +102,18 @@ export function Pet({
   };
 
   const handleFeed = () => {
-    if (feedCooldown === 0) {
+    if (feedCooldown === 0 && status) {
       playFeedAnimation();
-      performAction({ type: 'feed', timestamp: Date.now(), petId: status.petId });
+      performAction({ type: 'feed', timestamp: Date.now(), petId: name });
+      onFeed?.();
     }
   };
 
   const handlePlay = () => {
-    if (playCooldown === 0) {
+    if (playCooldown === 0 && status) {
       playBounceAnimation();
-      performAction({ type: 'play', timestamp: Date.now(), petId: status.petId });
+      performAction({ type: 'play', timestamp: Date.now(), petId: name });
+      onPlay?.();
     }
   };
 
@@ -129,43 +139,47 @@ export function Pet({
         </Animated.View>
       </Pressable>
 
-      <View style={styles.status}>
-        <ThemedText style={styles.mood}>{getStatusDescription()}</ThemedText>
-        <View style={styles.stats}>
-          <ThemedText>❤️ {status.happiness}%</ThemedText>
-          <ThemedText>⚡ {status.energy}%</ThemedText>
+      {status && (
+        <View style={styles.status}>
+          <ThemedText style={styles.mood}>{getStatusDescription()}</ThemedText>
+          <View style={styles.stats}>
+            <ThemedText>❤️ {status.happiness}%</ThemedText>
+            <ThemedText>⚡ {status.energy}%</ThemedText>
+          </View>
         </View>
-      </View>
+      )}
 
-      <View style={styles.actions}>
-        <View style={styles.actionContainer}>
-          <Pressable 
-            onPress={handleFeed} 
-            style={[styles.button, feedCooldown > 0 && styles.buttonDisabled]}
-            disabled={feedCooldown > 0}
-          >
-            <ThemedText>Feed</ThemedText>
-            {feedCooldown > 0 && (
-              <ThemedText style={styles.cooldown}>
-                {Math.ceil(feedCooldown / 1000)}s
-              </ThemedText>
-            )}
-          </Pressable>
-          <Pressable 
-            onPress={handlePlay} 
-            style={[styles.button, playCooldown > 0 && styles.buttonDisabled]}
-            disabled={playCooldown > 0}
-          >
-            <ThemedText>Play</ThemedText>
-            {playCooldown > 0 && (
-              <ThemedText style={styles.cooldown}>
-                {Math.ceil(playCooldown / 1000)}s
-              </ThemedText>
-            )}
-          </Pressable>
+      {status && (
+        <View style={styles.actions}>
+          <View style={styles.actionContainer}>
+            <Pressable 
+              onPress={handleFeed} 
+              style={[styles.button, feedCooldown > 0 && styles.buttonDisabled]}
+              disabled={feedCooldown > 0}
+            >
+              <ThemedText>Feed</ThemedText>
+              {feedCooldown > 0 && (
+                <ThemedText style={styles.cooldown}>
+                  {Math.ceil(feedCooldown / 1000)}s
+                </ThemedText>
+              )}
+            </Pressable>
+            <Pressable 
+              onPress={handlePlay} 
+              style={[styles.button, playCooldown > 0 && styles.buttonDisabled]}
+              disabled={playCooldown > 0}
+            >
+              <ThemedText>Play</ThemedText>
+              {playCooldown > 0 && (
+                <ThemedText style={styles.cooldown}>
+                  {Math.ceil(playCooldown / 1000)}s
+                </ThemedText>
+              )}
+            </Pressable>
+          </View>
+          {error && <ThemedText style={styles.error}>{error}</ThemedText>}
         </View>
-        {error && <ThemedText style={styles.error}>{error}</ThemedText>}
-      </View>
+      )}
     </View>
   );
 }

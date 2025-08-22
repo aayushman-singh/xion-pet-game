@@ -42,3 +42,4 @@ android/
 ios/
 
 .env*.local
+package-lock.json

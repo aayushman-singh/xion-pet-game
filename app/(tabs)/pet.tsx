@@ -15,10 +15,12 @@ export default function PetScreen() {
   const [petState, setPetState] = useState({
     happiness: 100,
     energy: 100,
-    hunger: 100,
-    strength: 7,
-    agility: 7,
-    intelligence: 6,
+    lastFed: Date.now(),
+    lastPlayed: Date.now(),
+    lastUpdated: Date.now(),
+    timestamp: Date.now(),
+    signature: '',
+    proof: null,
   });
 
   const [userPetData, setUserPetData] = useState<any>(null);
@@ -36,8 +38,14 @@ export default function PetScreen() {
     const loadUserPetData = async () => {
       if (account?.bech32Address && queryClient) {
         try {
+          const contractAddress = process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS;
+          if (!contractAddress) {
+            console.error('EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS not configured');
+            return;
+          }
+          
           const response = await queryClient.queryContractSmart(
-            process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS,
+            contractAddress,
             { get_value_by_user: { address: account.bech32Address } }
           );
           
@@ -48,14 +56,23 @@ export default function PetScreen() {
               
               // Update pet state with stored data
               if (userData.starterPet?.stats) {
-                setPetState(userData.starterPet.stats);
+                setPetState({
+                  happiness: userData.starterPet.stats.happiness || 100,
+                  energy: userData.starterPet.stats.energy || 100,
+                  lastFed: userData.starterPet.stats.lastFed || Date.now(),
+                  lastPlayed: userData.starterPet.stats.lastPlayed || Date.now(),
+                  lastUpdated: userData.starterPet.stats.lastUpdated || Date.now(),
+                  timestamp: Date.now(),
+                  signature: '',
+                  proof: null,
+                });
               }
             } catch (parseError) {
               console.error('Error parsing user data:', parseError);
             }
           }
-        } catch (error) {
-          if (error.message && error.message.includes("No value found")) {
+        } catch (error: any) {
+          if (error?.message && error.message.includes("No value found")) {
             Alert.alert(
               'No Pet Found', 
               'You need to claim a starter pet first. Go to the Home tab to get started!'
@@ -116,11 +133,11 @@ export default function PetScreen() {
     if (userPetData?.starterPet) {
       items.push({
         id: 'user-pet',
-        type: 'pet',
+        type: 'pet' as const,
         x: 2,
-                 y: canPetFly(userPetData.starterPet.type) ? 2 : 6, // Flying pets can be above ground, non-flying at ground level (y=6)
-        scene: 'outside', // Pet can only be outside
-        category: 'decoration', // Pets are decorations
+        y: canPetFly(userPetData.starterPet.type) ? 2 : 6, // Flying pets can be above ground, non-flying at ground level (y=6)
+        scene: 'outside' as const, // Pet can only be outside
+        category: 'decoration' as const, // Pets are decorations
         component: (
           <Pet
             name={userPetData.starterPet.name}
@@ -143,8 +160,8 @@ export default function PetScreen() {
         type: 'decoration' as const,
         x: 4,
         y: 2,
-        scene: 'inside',
-        category: 'furniture',
+        scene: 'inside' as const,
+        category: 'furniture' as const,
         component: <Decoration type="chair" rarity="rare" category="furniture" />,
       },
       {
@@ -152,8 +169,8 @@ export default function PetScreen() {
         type: 'decoration' as const,
         x: 3,
         y: 4,
-        scene: 'inside',
-        category: 'decoration',
+        scene: 'inside' as const,
+        category: 'decoration' as const,
         component: <Decoration type="plant" rarity="epic" category="decoration" />,
       },
       {
@@ -161,8 +178,8 @@ export default function PetScreen() {
         type: 'decoration' as const,
         x: 5,
         y: 5,
-        scene: 'inside',
-        category: 'furniture',
+        scene: 'inside' as const,
+        category: 'furniture' as const,
         component: <Decoration type="table" rarity="common" category="furniture" />,
       },
       {
@@ -170,8 +187,8 @@ export default function PetScreen() {
         type: 'decoration' as const,
         x: 2,
         y: 3,
-        scene: 'inside',
-        category: 'furniture',
+        scene: 'inside' as const,
+        category: 'furniture' as const,
         component: <Decoration type="sofa" rarity="rare" category="furniture" />,
       },
       {
@@ -179,8 +196,8 @@ export default function PetScreen() {
         type: 'decoration' as const,
         x: 6,
         y: 2,
-        scene: 'inside',
-        category: 'furniture',
+        scene: 'inside' as const,
+        category: 'furniture' as const,
         component: <Decoration type="bookshelf" rarity="epic" category="furniture" />,
       }
     );
@@ -192,17 +209,17 @@ export default function PetScreen() {
         type: 'decoration' as const,
                  x: 1,
          y: 6, // Ground level (y=6)
-         scene: 'outside',
-        category: 'decoration',
-        component: <Decoration type="tree" rarity="common" category="furniture" />,
+         scene: 'outside' as const,
+        category: 'decoration' as const,
+        component: <Decoration type="tree" rarity="common" category="decoration" />,
       },
       {
         id: 'deco-rock',
         type: 'decoration' as const,
                  x: 6,
          y: 6, // Ground level (y=6)
-         scene: 'outside',
-        category: 'decoration',
+         scene: 'outside' as const,
+        category: 'decoration' as const,
         component: <Decoration type="rock" rarity="common" category="decoration" />,
       },
       {
@@ -210,8 +227,8 @@ export default function PetScreen() {
         type: 'decoration' as const,
                  x: 2,
          y: 7, // Slightly above ground (y=7)
-         scene: 'outside',
-        category: 'decoration',
+         scene: 'outside' as const,
+        category: 'decoration' as const,
         component: <Decoration type="bush" rarity="rare" category="decoration" />,
       },
       {
@@ -219,8 +236,8 @@ export default function PetScreen() {
         type: 'decoration' as const,
                  x: 3,
          y: 6, // Ground level (y=6)
-         scene: 'outside',
-        category: 'furniture',
+         scene: 'outside' as const,
+        category: 'furniture' as const,
         component: <Decoration type="bench" rarity="common" category="furniture" />,
       },
       {
@@ -228,8 +245,8 @@ export default function PetScreen() {
         type: 'decoration' as const,
                  x: 4,
          y: 6, // Ground level (y=6)
-         scene: 'outside',
-        category: 'furniture',
+         scene: 'outside' as const,
+        category: 'furniture' as const,
         component: <Decoration type="fountain" rarity="epic" category="furniture" />,
       },
       {
@@ -237,8 +254,8 @@ export default function PetScreen() {
         type: 'decoration' as const,
                  x: 5,
          y: 5, // Can be above ground (y=5)
-         scene: 'outside',
-        category: 'decoration',
+         scene: 'outside' as const,
+        category: 'decoration' as const,
         component: <Decoration type="flower" rarity="common" category="decoration" />,
       }
     );
@@ -256,7 +273,7 @@ export default function PetScreen() {
   const handleFeed = () => {
     setPetState(prev => ({
       ...prev,
-      hunger: Math.min(100, prev.hunger + 20),
+      energy: Math.min(100, prev.energy + 20),
     }));
   };
 
@@ -624,7 +641,7 @@ export default function PetScreen() {
                        <ThemedText style={styles.mintEmoji}>🐱</ThemedText>
                        <ThemedText style={styles.mintTitle}>Pet NFT</ThemedText>
                        <ThemedText style={styles.mintPrice}>0.5 XION</ThemedText>
-                       {isMinting && <ThemedText style={styles.loadingText}>⏳</ThemedText>}
+                       {isMinting && <ThemedText style={styles.mintLoadingText}>⏳</ThemedText>}
                      </Pressable>
                      <Pressable 
                        style={[styles.mintCard, isMinting && styles.disabledCard]}
@@ -634,7 +651,7 @@ export default function PetScreen() {
                        <ThemedText style={styles.mintEmoji}>🪑</ThemedText>
                        <ThemedText style={styles.mintTitle}>Furniture NFT</ThemedText>
                        <ThemedText style={styles.mintPrice}>0.3 XION</ThemedText>
-                       {isMinting && <ThemedText style={styles.loadingText}>⏳</ThemedText>}
+                       {isMinting && <ThemedText style={styles.mintLoadingText}>⏳</ThemedText>}
                      </Pressable>
                      <Pressable 
                        style={[styles.mintCard, isMinting && styles.disabledCard]}
@@ -644,7 +661,7 @@ export default function PetScreen() {
                        <ThemedText style={styles.mintEmoji}>🌿</ThemedText>
                        <ThemedText style={styles.mintTitle}>Decoration NFT</ThemedText>
                        <ThemedText style={styles.mintPrice}>0.2 XION</ThemedText>
-                       {isMinting && <ThemedText style={styles.loadingText}>⏳</ThemedText>}
+                       {isMinting && <ThemedText style={styles.mintLoadingText}>⏳</ThemedText>}
                      </Pressable>
                    </View>
                  </View>
@@ -836,13 +853,6 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 20,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#6B4E5A',
-  },
   // Mint Tab Styles
   mintGrid: {
     flexDirection: 'row',
@@ -938,7 +948,7 @@ const styles = StyleSheet.create({
   disabledCard: {
     opacity: 0.6,
   },
-  loadingText: {
+  mintLoadingText: {
     fontSize: 16,
     marginTop: 4,
   },

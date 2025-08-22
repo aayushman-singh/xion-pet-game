@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { PetCareService } from '../services/petCare';
 import type { PetStatus, CareAction } from '../types/pet';
 
-export function usePetCare(initialStatus: PetStatus) {
-  const [status, setStatus] = useState<PetStatus>(initialStatus);
+export function usePetCare(initialStatus?: PetStatus | null) {
+  const [status, setStatus] = useState<PetStatus | null>(initialStatus || null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedCooldown, setFeedCooldown] = useState(0);
@@ -13,6 +13,7 @@ export function usePetCare(initialStatus: PetStatus) {
 
   // Update cooldowns
   const updateCooldowns = useCallback(async () => {
+    if (!status) return;
     const feedTime = await petCareService.getTimeUntilNextAction(status, 'feed');
     const playTime = await petCareService.getTimeUntilNextAction(status, 'play');
     setFeedCooldown(feedTime);
@@ -21,6 +22,7 @@ export function usePetCare(initialStatus: PetStatus) {
 
   // Update status with degradation
   const updateStatus = useCallback(async () => {
+    if (!status) return;
     try {
       const newStatus = await petCareService.calculateCurrentStatus(status);
       setStatus(newStatus);
@@ -33,6 +35,7 @@ export function usePetCare(initialStatus: PetStatus) {
 
   // Perform care action (feed/play)
   const performAction = async (action: CareAction) => {
+    if (!status) return;
     setIsLoading(true);
     setError(null);
     try {
@@ -65,6 +68,6 @@ export function usePetCare(initialStatus: PetStatus) {
     feedCooldown,
     playCooldown,
     performAction,
-    getStatusDescription: () => petCareService.getStatusDescription(status),
+    getStatusDescription: () => status ? petCareService.getStatusDescription(status) : 'Unknown',
   };
 }

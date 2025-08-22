@@ -1,4 +1,6 @@
-const { DaveClient } = require('@burnt-labs/dave-sdk');
+// Note: DaveClient is now a mock implementation in types/zkTLS.ts
+// For deployment scripts, you may need to use a different approach
+// const { DaveClient } = require('@burnt-labs/dave-sdk');
 const fs = require('fs');
 const path = require('path');
 

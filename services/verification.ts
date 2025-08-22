@@ -1,4 +1,4 @@
-import { DaveClient } from '@burnt-labs/dave-sdk';
+import { DaveClient } from '../types/zkTLS';
 import type {
   PetCareActivity,
   GameScore,

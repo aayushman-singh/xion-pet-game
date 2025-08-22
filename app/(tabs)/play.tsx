@@ -1,11 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Dimensions, Animated, PanResponder, Pressable } from 'react-native';
+import { StyleSheet, View, Dimensions, Animated, PanResponder, Pressable, Alert } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAbstraxionAccount } from "@burnt-labs/abstraxion-react-native";
 import { PetSVG } from '@/components/PetSVG';
 import { GameVerificationService } from '@/services/gameVerification';
-import type { GameScore, GameSession } from '@/types/achievements';
+import { XIONVerificationService } from '@/services/verification';
+import type { GameScore } from '@/types/zkTLS';
+import { QuickSwapPets } from '@/components/QuickSwapPets';
+import type { Pet } from '@/types/pet';
+import { PetRarity } from '@/types/pet';
+import { PetSelector } from '@/components/PetSelector';
+import { PET_BONUSES } from '@/types/petBonuses';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -22,6 +28,19 @@ interface Platform {
   height: number;
 }
 
+interface GameSession {
+  sessionId: string;
+  startTime: number;
+  endTime: number;
+  selectedPets: string[];
+  petSwaps: any[];
+  maxHeight: number;
+  finalScore: number;
+  timestamp: number;
+  signature: string;
+  proof: any;
+}
+
 interface GameState {
   score: number;
   highScore: number;
@@ -31,8 +50,8 @@ interface GameState {
 
 export default function PlayScreen() {
   const { data: account, isConnected } = useAbstraxionAccount();
-  const [selectedPets, setSelectedPets] = useState<PetType[]>([]);
-  const [activePet, setActivePet] = useState<PetType | null>(null);
+  const [selectedPets, setSelectedPets] = useState<Pet[]>([]);
+  const [activePet, setActivePet] = useState<Pet | null>(null);
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
     highScore: 0,
@@ -44,19 +63,20 @@ export default function PlayScreen() {
   const currentSession = useRef<GameSession | null>(null);
 
   // Mock pets data - replace with your actual pets data
-  const availablePets = [
-    { id: '1', name: 'Whiskers', type: 'cat', rarity: 'rare' },
-    { id: '2', name: 'Buddy', type: 'dog', rarity: 'epic' },
-    { id: '3', name: 'Fluffy', type: 'rabbit', rarity: 'legendary' },
-    { id: '4', name: 'Spike', type: 'dog', rarity: 'common' },
-    { id: '5', name: 'Luna', type: 'cat', rarity: 'epic' },
+  const availablePets: Pet[] = [
+    { id: '1', name: 'Whiskers', emoji: '🐱', basePrice: '100', description: 'A curious cat', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 60, agility: 80, intelligence: 70 }, rarity: PetRarity.RARE, type: 'cat' },
+    { id: '2', name: 'Buddy', emoji: '🐶', basePrice: '150', description: 'A loyal dog', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 80, agility: 60, intelligence: 60 }, rarity: PetRarity.EPIC, type: 'dog' },
+    { id: '3', name: 'Fluffy', emoji: '🐰', basePrice: '200', description: 'A fast rabbit', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 50, agility: 90, intelligence: 50 }, rarity: PetRarity.LEGENDARY, type: 'rabbit' },
+    { id: '4', name: 'Spike', emoji: '🐕', basePrice: '80', description: 'A brave dog', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 70, agility: 50, intelligence: 55 }, rarity: PetRarity.COMMON, type: 'dog' },
+    { id: '5', name: 'Luna', emoji: '🐈', basePrice: '120', description: 'A mysterious cat', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 55, agility: 75, intelligence: 80 }, rarity: PetRarity.EPIC, type: 'cat' },
   ];
 
   // Game physics state
   const playerPos = useRef(new Animated.ValueXY({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 })).current;
   const velocity = useRef({ x: 0, y: 0 });
   const platforms = useRef<Platform[]>([]);
-  const animationFrame = useRef<number>();
+  const animationFrame = useRef<number | null>(null);
+  const currentPlayerPos = useRef({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 });
   const verificationService = new XIONVerificationService();
 
   // Initialize platforms
@@ -88,9 +108,11 @@ export default function PlayScreen() {
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (_, gestureState) => {
         if (gameState.isPlaying) {
+          const newX = currentPlayerPos.current.x + gestureState.dx;
+          currentPlayerPos.current.x = newX;
           playerPos.setValue({
-            x: playerPos.x._value + gestureState.dx,
-            y: playerPos.y._value,
+            x: newX,
+            y: currentPlayerPos.current.y,
           });
         }
       },
@@ -105,8 +127,8 @@ export default function PlayScreen() {
     velocity.current.y += GRAVITY;
 
     // Update player position
-    let newX = playerPos.x._value;
-    let newY = playerPos.y._value + velocity.current.y;
+    let newX = currentPlayerPos.current.x;
+    let newY = currentPlayerPos.current.y + velocity.current.y;
 
     // Screen wrapping for x-axis
     if (newX < 0) newX = SCREEN_WIDTH;
@@ -160,11 +182,12 @@ export default function PlayScreen() {
       }
     }
 
+    currentPlayerPos.current = { x: newX, y: newY };
     playerPos.setValue({ x: newX, y: newY });
     animationFrame.current = requestAnimationFrame(gameLoop);
   };
 
-  const handlePetSelection = (pet: PetType) => {
+  const handlePetSelection = (pet: Pet) => {
     if (selectedPets.find(p => p.id === pet.id)) {
       setSelectedPets(selectedPets.filter(p => p.id !== pet.id));
       if (activePet?.id === pet.id) {
@@ -178,10 +201,10 @@ export default function PlayScreen() {
     }
   };
 
-  const handlePetSwap = async (pet: PetType) => {
+  const handlePetSwap = async (pet: Pet) => {
     if (gameState.isPlaying) {
       try {
-        const currentHeight = Math.floor((SCREEN_HEIGHT - playerPos.y._value) / 10);
+        const currentHeight = Math.floor((SCREEN_HEIGHT - currentPlayerPos.current.y) / 10);
         const swapAction = await gameVerification.swapActivePet(pet.id, currentHeight);
         console.log('Pet swap verified:', swapAction);
         setActivePet(pet);
@@ -209,6 +232,7 @@ export default function PlayScreen() {
         gameOver: false,
       });
       velocity.current = { x: 0, y: 0 };
+      currentPlayerPos.current = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 };
       playerPos.setValue({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 });
       animationFrame.current = requestAnimationFrame(gameLoop);
     } catch (error) {
@@ -290,7 +314,7 @@ export default function PlayScreen() {
       >
         {activePet && (
           <PetSVG
-            type={activePet.type}
+            type={activePet.type || 'cat'}
             size={PLAYER_SIZE}
             isAnimating={gameState.isPlaying}
             rarity={activePet.rarity}
@@ -314,12 +338,14 @@ export default function PlayScreen() {
       ))}
 
       {/* Quick swap UI */}
-      <QuickSwapPets
-        pets={selectedPets}
-        activePet={activePet}
-        onSwapPet={handlePetSwap}
-        isGameActive={gameState.isPlaying}
-      />
+      {activePet && (
+        <QuickSwapPets
+          pets={selectedPets}
+          activePet={activePet}
+          onSwapPet={handlePetSwap}
+          isGameActive={gameState.isPlaying}
+        />
+      )}
 
       {!gameState.isPlaying && (
         <View style={styles.menuContainer}>
@@ -415,6 +441,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 10,
+  },
+  buttonDisabled: {
+    backgroundColor: '#cccccc',
+    opacity: 0.6,
   },
   startButtonText: {
     color: 'white',

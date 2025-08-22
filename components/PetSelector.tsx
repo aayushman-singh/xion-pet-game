@@ -4,6 +4,7 @@ import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import { PetSVG } from './PetSVG';
 import type { Pet as PetType } from '../types/pet';
+import { PET_BONUSES } from '../types/petBonuses';
 
 const SELECTOR_WIDTH = Dimensions.get('window').width * 0.9;
 const PET_ITEM_WIDTH = SELECTOR_WIDTH / 3;
@@ -55,19 +56,19 @@ export function PetSelector({
               ]}
             >
               <PetSVG
-                type={pet.type}
+                type={pet.type || 'cat'}
                 size={60}
                 isAnimating={false}
                 rarity={pet.rarity}
               />
               <ThemedText style={styles.petName}>{pet.name}</ThemedText>
               <ThemedText style={styles.petRarity}>{pet.rarity}</ThemedText>
-              {PET_BONUSES[pet.type]?.activeBonus && (
+              {pet.type && PET_BONUSES[pet.type]?.activeBonus && (
                 <ThemedText style={styles.petBonus}>
                   {PET_BONUSES[pet.type].activeBonus.description}
                 </ThemedText>
               )}
-              {PET_BONUSES[pet.type]?.passiveBonus && (
+              {pet.type && PET_BONUSES[pet.type]?.passiveBonus && (
                 <ThemedText style={[styles.petBonus, styles.passiveBonus]}>
                   + {PET_BONUSES[pet.type].passiveBonus.description}
                 </ThemedText>
@@ -128,5 +129,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#4CAF50',
     marginTop: 2,
+  },
+  passiveBonus: {
+    color: '#2196F3',
   },
 });

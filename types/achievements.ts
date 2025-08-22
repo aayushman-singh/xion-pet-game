@@ -1,4 +1,4 @@
-import { ZkTLSProof } from '@burnt-labs/dave-sdk';
+import { ZkTLSProof, PetCareActivity, GameScore } from './zkTLS';
 
 export enum AchievementCategory {
   PET_CARE = 'PET_CARE',
@@ -45,6 +45,7 @@ export interface Achievement {
     value: number | string;
   };
   icon?: string;
+  progress?: number; // Progress towards completion (0-100)
 }
 
 export interface UserAchievement extends Achievement {
@@ -52,6 +53,26 @@ export interface UserAchievement extends Achievement {
   isCompleted: boolean;
   completedAt?: number;
   proof?: ZkTLSProof;
+}
+
+// Verification service interface
+export interface VerificationService {
+  verifyPetCare(activity: PetCareActivity): Promise<ZkTLSProof>;
+  verifyGameScore(score: GameScore): Promise<ZkTLSProof>;
+  verifyAchievement(achievement: Achievement): Promise<ZkTLSProof>;
+  verifyLeaderboardEntry(entry: LeaderboardEntry): Promise<ZkTLSProof>;
+  verifyActivityBatch(activities: PetCareActivity[]): Promise<ZkTLSProof[]>;
+  calculateHappinessScore(petId: string, activities: PetCareActivity[]): Promise<number>;
+}
+
+// Leaderboard entry interface
+export interface LeaderboardEntry {
+  petId: string;
+  ownerAddress: string;
+  totalScore: number;
+  gameHighScore: number;
+  careScore: number;
+  achievements: Achievement[];
 }
 
 // Achievement definitions

@@ -1,6 +1,5 @@
-import { DaveClient } from '@burnt-labs/dave-sdk';
-import type { GameScore, PetCareActivity, VerifiableData, ZkTLSProof } from '../types/achievements';
-import type { PetType } from '../types/pet';
+import { DaveClient, ZkTLSProof, VerifiableData, GameScore, PetCareActivity } from '../types/zkTLS';
+import type { Pet } from '../types/pet';
 
 interface PetSwapAction extends VerifiableData {
   petId: string;
@@ -45,7 +44,7 @@ export class GameVerificationService {
     }
   }
 
-  async startGameSession(selectedPets: PetType[]): Promise<GameSession> {
+  async startGameSession(selectedPets: Pet[]): Promise<GameSession> {
     const sessionId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     const session: GameSession = {
