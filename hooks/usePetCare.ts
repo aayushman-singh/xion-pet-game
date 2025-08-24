@@ -52,16 +52,16 @@ export function usePetCare(initialStatus?: PetStatus | null, config?: PetCareTim
     }
   };
 
-  // Set up periodic status updates using the config's update interval
+  // Set up periodic status updates using the config's degradation interval
   useEffect(() => {
-    const statusInterval = setInterval(updateStatus, timerConfig.updateInterval);
+    const statusInterval = setInterval(updateStatus, timerConfig.degradationInterval);
     const cooldownInterval = setInterval(updateCooldowns, 1000); // Update cooldowns every second
 
     return () => {
       clearInterval(statusInterval);
       clearInterval(cooldownInterval);
     };
-  }, [updateStatus, updateCooldowns, timerConfig.updateInterval]);
+  }, [updateStatus, updateCooldowns, timerConfig.degradationInterval]);
 
   return {
     status,

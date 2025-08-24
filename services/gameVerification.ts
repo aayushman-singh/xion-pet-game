@@ -57,7 +57,12 @@ export class GameVerificationService {
       finalScore: 0,
       timestamp: Date.now(),
       signature: '',
-      proof: null
+      proof: {
+        id: `temp_${Date.now()}`,
+        type: 'game_session_start',
+        timestamp: Date.now(),
+        verified: false
+      }
     };
 
     // Generate proof for session start
@@ -90,7 +95,12 @@ export class GameVerificationService {
       previousPetId,
       swapHeight: currentHeight,
       signature: '',
-      proof: null
+      proof: {
+        id: `swap_${Date.now()}`,
+        type: 'pet_swap',
+        timestamp: Date.now(),
+        verified: false
+      }
     };
 
     // Generate proof for the swap
@@ -156,17 +166,9 @@ export class GameVerificationService {
 
   async verifyGameScore(score: number, session: GameSession): Promise<GameScore> {
     const gameScore: GameScore = {
-      petId: session.selectedPets[0], // Use initial pet as reference
       score,
-      gameType: 'doodleJump',
-      metadata: {
-        heightReached: session.maxHeight,
-        powerupsCollected: 0, // For future implementation
-        timeSpent: session.endTime - session.startTime,
-      },
       timestamp: Date.now(),
-      signature: '',
-      proof: null
+      verified: false
     };
 
     // Generate final score proof
@@ -179,7 +181,7 @@ export class GameVerificationService {
 
     return {
       ...gameScore,
-      proof
+      verified: true
     };
   }
 }

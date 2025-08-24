@@ -9,6 +9,28 @@ export interface ZkTLSProof {
   verified?: boolean;
 }
 
+export interface VerifiableData {
+  timestamp: number;
+  signature: string;
+  proof: ZkTLSProof;
+}
+
+export interface GameScore {
+  score: number;
+  timestamp: number;
+  verified: boolean;
+}
+
+export interface PetCareActivity {
+  petId: string;
+  activityType: string;
+  duration: number;
+  happinessImpact: number;
+  timestamp: number;
+  signature: string;
+  proof: ZkTLSProof | null;
+}
+
 export interface DaveClient {
   generateProof(params: {
     type: string;

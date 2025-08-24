@@ -6,7 +6,8 @@ import { useAbstraxionAccount } from "@burnt-labs/abstraxion-react-native";
 import { PetSVG } from '@/components/PetSVG';
 import { GameVerificationService } from '@/services/gameVerification';
 import { XIONVerificationService } from '@/services/verification';
-import type { GameScore } from '@/types/zkTLS';
+import { useDaveIntegration } from '@/hooks/useDaveIntegration';
+// import type { GameScore } from '@/types/zkTLS'; // Not needed
 import { QuickSwapPets } from '@/components/QuickSwapPets';
 import type { Pet } from '@/types/pet';
 import { PetRarity } from '@/types/pet';
@@ -15,11 +16,12 @@ import { PET_BONUSES } from '@/types/petBonuses';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const GRAVITY = 0.8;
-const JUMP_FORCE = -15;
+const GRAVITY = 0.6;
+const JUMP_FORCE = -12;
 const PLATFORM_HEIGHT = 15;
-const PLATFORM_WIDTH = 60;
+const PLATFORM_WIDTH = 80;
 const PLAYER_SIZE = 50;
+const MOVEMENT_SPEED = 10;
 
 interface Platform {
   x: number;
@@ -61,6 +63,9 @@ export default function PlayScreen() {
   
   const gameVerification = useRef(new GameVerificationService()).current;
   const currentSession = useRef<GameSession | null>(null);
+  
+  // Dave XION SDK integration for zkTLS proofs (HACKATHON DEMO)
+  const { generateGameProof, isGeneratingProof, getProviderIds } = useDaveIntegration();
 
   // Mock pets data - replace with your actual pets data
   const availablePets: Pet[] = [
@@ -73,11 +78,16 @@ export default function PlayScreen() {
 
   // Game physics state
   const playerPos = useRef(new Animated.ValueXY({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 })).current;
-  const velocity = useRef({ x: 0, y: 0 });
+  const velocity = useRef({ x: 0, y: 0 }); // Start with no velocity
   const platforms = useRef<Platform[]>([]);
   const animationFrame = useRef<number | null>(null);
   const currentPlayerPos = useRef({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 });
   const verificationService = new XIONVerificationService();
+  
+  // Touch movement state
+  const touchStartX = useRef(0);
+  const isTouching = useRef(false);
+  const movementDirection = useRef(0); // -1 for left, 1 for right, 0 for none
 
   // Initialize platforms
   const initializePlatforms = () => {
@@ -85,16 +95,16 @@ export default function PlayScreen() {
     // Add initial platform under player
     platforms.current.push({
       x: SCREEN_WIDTH / 2 - PLATFORM_WIDTH / 2,
-      y: SCREEN_HEIGHT - 50,
+      y: SCREEN_HEIGHT - 100, // Position platform exactly under player
       width: PLATFORM_WIDTH,
       height: PLATFORM_HEIGHT,
     });
 
     // Add random platforms
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       platforms.current.push({
         x: Math.random() * (SCREEN_WIDTH - PLATFORM_WIDTH),
-        y: SCREEN_HEIGHT - 200 - i * 100,
+        y: SCREEN_HEIGHT - 150 - i * 100, // Closer spacing for easier gameplay
         width: PLATFORM_WIDTH,
         height: PLATFORM_HEIGHT,
       });
@@ -106,15 +116,22 @@ export default function PlayScreen() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (_, gestureState) => {
+        touchStartX.current = gestureState.x0;
+        isTouching.current = true;
+        movementDirection.current = 0;
+      },
       onPanResponderMove: (_, gestureState) => {
-        if (gameState.isPlaying) {
-          const newX = currentPlayerPos.current.x + gestureState.dx;
-          currentPlayerPos.current.x = newX;
-          playerPos.setValue({
-            x: newX,
-            y: currentPlayerPos.current.y,
-          });
+        if (gameState.isPlaying && isTouching.current) {
+          const deltaX = gestureState.moveX - touchStartX.current;
+          if (Math.abs(deltaX) > 10) { // Smaller dead zone for more responsive movement
+            movementDirection.current = deltaX > 0 ? 1 : -1;
+          }
         }
+      },
+      onPanResponderRelease: () => {
+        isTouching.current = false;
+        movementDirection.current = 0;
       },
     })
   ).current;
@@ -126,29 +143,39 @@ export default function PlayScreen() {
     // Apply gravity
     velocity.current.y += GRAVITY;
 
+    // Handle horizontal movement based on touch
+    if (movementDirection.current !== 0) {
+      velocity.current.x = movementDirection.current * MOVEMENT_SPEED;
+    } else {
+      // Gradually slow down horizontal movement
+      velocity.current.x *= 0.8;
+    }
+
     // Update player position
-    let newX = currentPlayerPos.current.x;
+    let newX = currentPlayerPos.current.x + velocity.current.x;
     let newY = currentPlayerPos.current.y + velocity.current.y;
 
     // Screen wrapping for x-axis
-    if (newX < 0) newX = SCREEN_WIDTH;
-    if (newX > SCREEN_WIDTH) newX = 0;
+    if (newX < -PLAYER_SIZE / 2) newX = SCREEN_WIDTH + PLAYER_SIZE / 2;
+    if (newX > SCREEN_WIDTH + PLAYER_SIZE / 2) newX = -PLAYER_SIZE / 2;
 
     // Check platform collisions
+    let onPlatform = false;
     platforms.current.forEach((platform) => {
       if (
         newY + PLAYER_SIZE > platform.y &&
-        newY + PLAYER_SIZE < platform.y + platform.height &&
-        newX > platform.x - PLAYER_SIZE / 2 &&
-        newX < platform.x + platform.width + PLAYER_SIZE / 2 &&
+        newY + PLAYER_SIZE < platform.y + platform.height + 5 &&
+        newX + PLAYER_SIZE / 2 > platform.x &&
+        newX - PLAYER_SIZE / 2 < platform.x + platform.width &&
         velocity.current.y > 0
       ) {
         newY = platform.y - PLAYER_SIZE;
-        velocity.current.y = JUMP_FORCE;
+        velocity.current.y = JUMP_FORCE; // Always jump when hitting platform
+        onPlatform = true;
       }
     });
 
-    // Update score and verify height reached
+    // Update score based on height
     const currentHeight = Math.floor((SCREEN_HEIGHT - newY) / 10);
     if (currentHeight > gameState.score) {
       setGameState(prev => ({ ...prev, score: currentHeight }));
@@ -156,7 +183,7 @@ export default function PlayScreen() {
     }
 
     // Game over condition
-    if (newY > SCREEN_HEIGHT) {
+    if (newY > SCREEN_HEIGHT + 100) {
       endGame();
       return;
     }
@@ -171,11 +198,12 @@ export default function PlayScreen() {
       }));
 
       // Remove platforms that are off screen and add new ones
-      platforms.current = platforms.current.filter(p => p.y < SCREEN_HEIGHT);
-      while (platforms.current.length < 10) {
+      platforms.current = platforms.current.filter(p => p.y < SCREEN_HEIGHT + 100);
+      while (platforms.current.length < 15) {
+        const lastPlatform = platforms.current[platforms.current.length - 1];
         platforms.current.push({
           x: Math.random() * (SCREEN_WIDTH - PLATFORM_WIDTH),
-          y: platforms.current[platforms.current.length - 1].y - 100,
+          y: lastPlatform ? lastPlatform.y - 100 : SCREEN_HEIGHT - 150, // Match the spacing
           width: PLATFORM_WIDTH,
           height: PLATFORM_HEIGHT,
         });
@@ -231,9 +259,14 @@ export default function PlayScreen() {
         isPlaying: true,
         gameOver: false,
       });
-      velocity.current = { x: 0, y: 0 };
+      velocity.current = { x: 0, y: JUMP_FORCE }; // Reset velocity
       currentPlayerPos.current = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 };
       playerPos.setValue({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 });
+      
+      // Reset touch state
+      isTouching.current = false;
+      movementDirection.current = 0;
+      
       animationFrame.current = requestAnimationFrame(gameLoop);
     } catch (error) {
       console.error('Failed to start game session:', error);
@@ -265,6 +298,28 @@ export default function PlayScreen() {
         // End game session with verification
         const finalSession = await gameVerification.endGameSession(finalScore);
         console.log('Game session ended:', finalSession);
+
+        // Generate real zkTLS proof for game session using Reclaim Protocol
+        try {
+          const providerIds = getProviderIds();
+          const gameSessionData = {
+            sessionId: finalSession.sessionId,
+            petIds: selectedPets.map(p => p.id),
+            maxHeight: finalSession.maxHeight,
+            finalScore: finalScore,
+            swapCount: finalSession.petSwaps.length,
+            playerAddress: account?.bech32Address,
+            providerId: providerIds.gameSession
+          };
+          
+          const proof = await generateGameProof(gameSessionData);
+          console.log('🎮 Generated real zkTLS proof for game session:', proof.id);
+          if ('reclaim_proof' in proof && proof.reclaim_proof) {
+            console.log('✅ Using genuine Reclaim Protocol game proof');
+          }
+        } catch (proofError) {
+          console.warn('zkTLS game proof generation failed:', proofError);
+        }
 
         // Verify final score
         const verifiedScore = await gameVerification.verifyGameScore(finalScore, finalSession);
@@ -304,13 +359,12 @@ export default function PlayScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={styles.container} {...panResponder.panHandlers}>
       <ThemedText style={styles.score}>Score: {gameState.score}</ThemedText>
       <ThemedText style={styles.highScore}>High Score: {gameState.highScore}</ThemedText>
 
       <Animated.View
         style={[styles.player, playerPos.getLayout()]}
-        {...panResponder.panHandlers}
       >
         {activePet && (
           <PetSVG
@@ -373,6 +427,15 @@ export default function PlayScreen() {
                   : 'Start Game'}
             </ThemedText>
           </Pressable>
+        </View>
+      )}
+
+      {/* Game instructions overlay */}
+      {gameState.isPlaying && (
+        <View style={styles.instructionsOverlay}>
+          <ThemedText style={styles.instructionsText}>
+            Touch and drag left/right to move
+          </ThemedText>
         </View>
       )}
     </ThemedView>
@@ -450,5 +513,23 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  instructionsOverlay: {
+    position: 'absolute',
+    bottom: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginHorizontal: 40,
+  },
+  instructionsText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
