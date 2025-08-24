@@ -15,8 +15,8 @@ import { PET_BONUSES } from '@/types/petBonuses';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const GRAVITY = 0.8;
-const JUMP_FORCE = -15;
+const GRAVITY = 0.8; // Normal gravity for natural falling
+const JUMP_FORCE = -18; // Strong jump when hitting platforms
 const PLATFORM_HEIGHT = 15;
 const PLATFORM_WIDTH = 60;
 const PLAYER_SIZE = 50;
@@ -58,6 +58,7 @@ export default function PlayScreen() {
     isPlaying: false,
     gameOver: false,
   });
+  const [isOnPlatform, setIsOnPlatform] = useState(false);
   
   const gameVerification = useRef(new GameVerificationService()).current;
   const currentSession = useRef<GameSession | null>(null);
@@ -90,28 +91,34 @@ export default function PlayScreen() {
       height: PLATFORM_HEIGHT,
     });
 
-    // Add random platforms
-    for (let i = 0; i < 10; i++) {
+    // Add platforms with optimal spacing for platform-based jumping
+    for (let i = 0; i < 20; i++) {
       platforms.current.push({
         x: Math.random() * (SCREEN_WIDTH - PLATFORM_WIDTH),
-        y: SCREEN_HEIGHT - 200 - i * 100,
+        y: SCREEN_HEIGHT - 120 - i * 70, // Optimal spacing for platform jumping
         width: PLATFORM_WIDTH,
         height: PLATFORM_HEIGHT,
       });
     }
   };
 
-  // Pan responder for player movement
+  // Pan responder for player movement - now works anywhere on screen
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (_, gestureState) => {
         if (gameState.isPlaying) {
-          const newX = currentPlayerPos.current.x + gestureState.dx;
-          currentPlayerPos.current.x = newX;
+          // Simple drag-based movement
+          const moveSpeed = 1.5;
+          const newX = currentPlayerPos.current.x + (gestureState.dx * moveSpeed);
+          
+          // Keep player within screen bounds
+          const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(SCREEN_WIDTH - PLAYER_SIZE / 2, newX));
+          
+          currentPlayerPos.current.x = clampedX;
           playerPos.setValue({
-            x: newX,
+            x: clampedX,
             y: currentPlayerPos.current.y,
           });
         }
@@ -135,6 +142,7 @@ export default function PlayScreen() {
     if (newX > SCREEN_WIDTH) newX = 0;
 
     // Check platform collisions
+    let onPlatform = false;
     platforms.current.forEach((platform) => {
       if (
         newY + PLAYER_SIZE > platform.y &&
@@ -144,9 +152,15 @@ export default function PlayScreen() {
         velocity.current.y > 0
       ) {
         newY = platform.y - PLAYER_SIZE;
-        velocity.current.y = JUMP_FORCE;
+        velocity.current.y = JUMP_FORCE; // Boost jump when hitting platform
+        onPlatform = true;
       }
     });
+
+    // Update platform state for debugging
+    setIsOnPlatform(onPlatform);
+
+    // No constant jumping - sprite only jumps when hitting platforms
 
     // Update score and verify height reached
     const currentHeight = Math.floor((SCREEN_HEIGHT - newY) / 10);
@@ -172,10 +186,10 @@ export default function PlayScreen() {
 
       // Remove platforms that are off screen and add new ones
       platforms.current = platforms.current.filter(p => p.y < SCREEN_HEIGHT);
-      while (platforms.current.length < 10) {
+      while (platforms.current.length < 20) {
         platforms.current.push({
           x: Math.random() * (SCREEN_WIDTH - PLATFORM_WIDTH),
-          y: platforms.current[platforms.current.length - 1].y - 100,
+          y: platforms.current[platforms.current.length - 1].y - 70, // Optimal spacing for platform jumping
           width: PLATFORM_WIDTH,
           height: PLATFORM_HEIGHT,
         });
@@ -231,7 +245,7 @@ export default function PlayScreen() {
         isPlaying: true,
         gameOver: false,
       });
-      velocity.current = { x: 0, y: 0 };
+      velocity.current = { x: 0, y: -5 }; // Small initial upward velocity
       currentPlayerPos.current = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 };
       playerPos.setValue({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 });
       animationFrame.current = requestAnimationFrame(gameLoop);
@@ -304,13 +318,17 @@ export default function PlayScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={styles.container} {...panResponder.panHandlers}>
       <ThemedText style={styles.score}>Score: {gameState.score}</ThemedText>
       <ThemedText style={styles.highScore}>High Score: {gameState.highScore}</ThemedText>
+      {gameState.isPlaying && (
+        <ThemedText style={styles.debugInfo}>
+          Platform: {isOnPlatform ? 'Yes' : 'No'} | Vel: {Math.round(velocity.current.y)}
+        </ThemedText>
+      )}
 
       <Animated.View
         style={[styles.player, playerPos.getLayout()]}
-        {...panResponder.panHandlers}
       >
         {activePet && (
           <PetSVG
@@ -353,6 +371,11 @@ export default function PlayScreen() {
             <ThemedText style={styles.gameOver}>Game Over!</ThemedText>
           )}
           
+          <ThemedText style={styles.instructions}>
+            🎮 Drag anywhere on screen to move left/right{'\n'}
+            🦘 Your pet jumps when landing on platforms!
+          </ThemedText>
+          
           <PetSelector
             pets={availablePets}
             selectedPets={selectedPets}
@@ -375,6 +398,15 @@ export default function PlayScreen() {
           </Pressable>
         </View>
       )}
+
+      {/* Show instructions during gameplay */}
+      {gameState.isPlaying && (
+        <View style={styles.gameInstructions}>
+          <ThemedText style={styles.gameInstructionText}>
+            ← Drag anywhere to move →
+          </ThemedText>
+        </View>
+      )}
     </ThemedView>
   );
 }
@@ -383,6 +415,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f0f0f0',
+    // Add subtle pattern to indicate draggable area
+    position: 'relative',
   },
   title: {
     fontSize: 24,
@@ -417,11 +451,23 @@ const styles = StyleSheet.create({
     width: PLAYER_SIZE,
     height: PLAYER_SIZE,
     backgroundColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   platform: {
     position: 'absolute',
     backgroundColor: '#2196F3',
     borderRadius: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 2,
+    borderColor: '#1976D2',
   },
   menuContainer: {
     position: 'absolute',
@@ -450,5 +496,43 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  debugInfo: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    fontSize: 14,
+    color: '#666',
+    zIndex: 1,
+  },
+  instructions: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    opacity: 0.8,
+    lineHeight: 24,
+  },
+  gameInstructions: {
+    position: 'absolute',
+    top: 80,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  gameInstructionText: {
+    fontSize: 20,
+    color: '#333',
+    textAlign: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    fontWeight: 'bold',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
 });
