@@ -236,13 +236,6 @@ fn execute_update_pet_status(
         return Err(ContractError::InvalidProof {});
     }
 
-    // Verify ownership (check against pet NFT contract if configured)
-    let config = CONFIG.load(deps.storage)?;
-    if let Some(_pet_contract) = config.pet_nft_contract {
-        // In a real implementation, query the NFT contract to verify ownership
-        // For now, we'll trust the status.owner field
-    }
-
     // Update timestamp and save
     status.last_updated = env.block.time.seconds();
     status.owner = info.sender.clone();

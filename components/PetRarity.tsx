@@ -8,10 +8,10 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { ThemedText } from './ThemedText';
-import { PetRarity, PetStats, RARITY_COLORS } from '../types/pet';
+import { PetRarity as PetRarityType, PetStats, RARITY_COLORS } from '../types/pet';
 
 interface PetRarityProps {
-  rarity: PetRarity;
+  rarity: PetRarityType;
   stats: PetStats;
   showAura?: boolean;
 }
@@ -23,8 +23,8 @@ export function PetRarity({ rarity, stats, showAura = true }: PetRarityProps) {
 
     const scale = withRepeat(
       withSequence(
-        withTiming(1.1, { duration: 1500, easing: Easing.inOut(Easing.sine) }),
-        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sine) })
+        withTiming(1.1, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) })
       ),
       -1, // Infinite repeat
       true // Reverse

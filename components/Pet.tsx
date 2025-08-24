@@ -12,6 +12,7 @@ import { ThemedText } from './ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { PetSVG } from './PetSVG';
 import { usePetCare } from '../hooks/usePetCare';
+import { formatTimeRemaining } from '../types/petCareTimers';
 
 import { Pet as PetType, PetRarity, PetStats, PetStatus } from '../types/pet';
 import { PetRarity as PetRarityComponent } from './PetRarity';
@@ -56,8 +57,8 @@ export function Pet({
   const bounceHeight = useSharedValue(0);
   
   // Theme colors
-  const backgroundColor = useThemeColor('background');
-  const textColor = useThemeColor('text');
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
 
   // Animated styles
   const petStyle = useAnimatedStyle(() => {
@@ -66,7 +67,7 @@ export function Pet({
         { scale: scale.value },
         { rotate: `${rotation.value}deg` },
         { translateY: bounceHeight.value },
-      ],
+      ] as const,
     };
   });
 
@@ -160,7 +161,7 @@ export function Pet({
               <ThemedText>Feed</ThemedText>
               {feedCooldown > 0 && (
                 <ThemedText style={styles.cooldown}>
-                  {Math.ceil(feedCooldown / 1000)}s
+                  {formatTimeRemaining(feedCooldown)}
                 </ThemedText>
               )}
             </Pressable>
@@ -172,7 +173,7 @@ export function Pet({
               <ThemedText>Play</ThemedText>
               {playCooldown > 0 && (
                 <ThemedText style={styles.cooldown}>
-                  {Math.ceil(playCooldown / 1000)}s
+                  {formatTimeRemaining(playCooldown)}
                 </ThemedText>
               )}
             </Pressable>
