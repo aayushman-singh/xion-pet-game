@@ -38,13 +38,10 @@ export default function HomeScreen() {
 
   // Web mock: Pretend user is connected and has a pet
   const isWebMock = Platform.OS === 'web';
-  const mockIsConnected = isWebMock ? true : isConnected;
-  const mockHasStarterPet = isWebMock ? true : hasStarterPet;
-  const mockIsInitialized = isWebMock ? true : isInitialized;
 
   // Handle wallet initialization delay (only on mobile)
   useEffect(() => {
-    if (isWebMock) {
+    if (Platform.OS === 'web') {
       setIsWalletInitializing(false);
       return;
     }
@@ -54,12 +51,12 @@ export default function HomeScreen() {
     }, 1000); // Give wallet 1 second to initialize
 
     return () => clearTimeout(timer);
-  }, [isWebMock]);
+  }, []);
 
   // Check if user has a starter pet from on-chain storage (only on mobile)
   useEffect(() => {
     // Skip all wallet logic on web
-    if (isWebMock) {
+    if (Platform.OS === 'web') {
       return;
     }
 
@@ -141,7 +138,7 @@ export default function HomeScreen() {
     };
 
     checkStarterPet();
-  }, [account?.bech32Address, queryClient, isConnected, isWebMock]);
+  }, [account?.bech32Address, queryClient, isConnected]);
 
   const handleClaimStarterPet = async () => {
     if (!account?.bech32Address || !signingClient) {
@@ -203,15 +200,15 @@ export default function HomeScreen() {
 
   // Show loading spinner until both wallet connectivity and pet status are confirmed
   console.log('🎯 Render decision:', {
-    isInitialized: mockIsInitialized,
-    isConnected: mockIsConnected,
-    hasStarterPet: mockHasStarterPet,
+    isInitialized: Platform.OS === 'web' ? true : isInitialized,
+    isConnected: Platform.OS === 'web' ? true : isConnected,
+    hasStarterPet: Platform.OS === 'web' ? true : hasStarterPet,
     isCheckingPet,
     isWalletInitializing
   });
 
   // Show loading screen while wallet is initializing (only on mobile)
-  if (!isWebMock && isWalletInitializing) {
+  if (Platform.OS !== 'web' && isWalletInitializing) {
     console.log('🔄 Showing loading screen while wallet initializes');
     return (
       <ThemedView style={styles.container}>
@@ -222,7 +219,7 @@ export default function HomeScreen() {
   }
 
   // Show loading screen while checking pet status after connection
-  if (mockIsConnected && !mockIsInitialized) {
+  if ((Platform.OS === 'web' ? true : isConnected) && !(Platform.OS === 'web' ? true : isInitialized)) {
     console.log('🔄 Showing loading screen while checking pet status');
     return (
       <ThemedView style={styles.container}>
@@ -233,7 +230,7 @@ export default function HomeScreen() {
   }
 
   // Show connect wallet screen when not connected
-  if (!mockIsConnected) {
+  if (!(Platform.OS === 'web' ? true : isConnected)) {
     console.log('🔌 Showing connect wallet screen');
     return (
       <ThemedView style={styles.container}>
@@ -260,7 +257,7 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      {!isWebMock && (
+      {Platform.OS !== 'web' && (
         <Pressable 
           style={styles.logoutButtonTop}
           onPress={logout}
@@ -269,7 +266,7 @@ export default function HomeScreen() {
         </Pressable>
       )}
       
-      {isWebMock && (
+      {Platform.OS === 'web' && (
         <ThemedText style={styles.description}>
           🌐 Web Demo Mode - Connected with Mock Wallet
         </ThemedText>
@@ -277,7 +274,7 @@ export default function HomeScreen() {
       
       <ThemedText style={styles.title}>Welcome to XION Pet Game!</ThemedText>
       
-      {!mockHasStarterPet ? (
+             {!(Platform.OS === 'web' ? true : hasStarterPet) ? (
         <>
           <ThemedText style={styles.description}>
             Claim your starter pet to begin your adventure!

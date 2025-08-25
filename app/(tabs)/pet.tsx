@@ -15,8 +15,6 @@ export default function PetScreen() {
   
   // Web mock: Pretend user is connected and has a pet
   const isWebMock = Platform.OS === 'web';
-  const mockIsConnected = isWebMock ? true : isConnected;
-  const mockAccount = isWebMock ? { bech32Address: 'web-demo-address' } : account;
   
   const [petState, setPetState] = useState({
     happiness: 100,
@@ -83,7 +81,7 @@ export default function PetScreen() {
         return;
       }
 
-      if (mockAccount?.bech32Address && queryClient) {
+      if ((Platform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account)?.bech32Address && queryClient) {
         try {
           const contractAddress = process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS;
           if (!contractAddress) {
@@ -93,7 +91,7 @@ export default function PetScreen() {
           
           const response = await queryClient.queryContractSmart(
             contractAddress,
-            { get_value_by_user: { address: mockAccount.bech32Address } }
+            { get_value_by_user: { address: (Platform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account).bech32Address } }
           );
           
           if (response && typeof response === 'string') {
@@ -146,7 +144,7 @@ export default function PetScreen() {
         return;
       }
 
-      if (!mockAccount?.bech32Address || !queryClient) {
+      if (!(Platform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account)?.bech32Address || !queryClient) {
         setUserBalance('0');
         setIsLoadingBalance(false);
         return;
@@ -155,7 +153,7 @@ export default function PetScreen() {
       setIsLoadingBalance(true);
       try {
         // Query user's XION balance
-        const balance = await queryClient.getBalance(mockAccount.bech32Address, 'uxion');
+        const balance = await queryClient.getBalance((Platform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account).bech32Address, 'uxion');
         if (balance && balance.amount) {
           setUserBalance(balance.amount);
         } else {
@@ -386,7 +384,7 @@ export default function PetScreen() {
       const msg = {
         mint: {
           token_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          owner: mockAccount.bech32Address,
+          owner: (Platform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account).bech32Address,
           token_uri: JSON.stringify(nftData),
           extension: {
             name: nftData.name,
@@ -401,7 +399,7 @@ export default function PetScreen() {
       const uxionAmount = Math.floor(requiredAmount * 1000000);
       
       const result = await signingClient.execute(
-        mockAccount.bech32Address,
+        (Platform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account).bech32Address,
         contractAddress,
         msg,
         'auto',
@@ -569,7 +567,7 @@ export default function PetScreen() {
     }
   };
 
-  if (!mockIsConnected) {
+  if (!(Platform.OS === 'web' ? true : isConnected)) {
     return (
       <ScrollView style={styles.container}>
         <ThemedText style={styles.noPetText}>

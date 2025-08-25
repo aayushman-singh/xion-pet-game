@@ -59,8 +59,6 @@ export default function PlayScreen() {
   
   // Web mock: Pretend user is connected
   const isWebMock = RNPlatform.OS === 'web';
-  const mockIsConnected = isWebMock ? true : isConnected;
-  const mockAccount = isWebMock ? { bech32Address: 'web-demo-address' } : account;
   
   const [selectedPets, setSelectedPets] = useState<Pet[]>([]);
   const [activePet, setActivePet] = useState<Pet | null>(null);
@@ -70,6 +68,7 @@ export default function PlayScreen() {
     isPlaying: false,
     gameOver: false,
   });
+  const [renderPlatforms, setRenderPlatforms] = useState<Platform[]>([]);
 
   
   // Use a ref to track the current game state for the game loop
@@ -108,25 +107,29 @@ export default function PlayScreen() {
      // Initialize platforms
    const initializePlatforms = () => {
      platforms.current = [];
-     // Add initial platform under player
-     const initialPlatform = {
-       x: SCREEN_WIDTH / 2 - PLATFORM_WIDTH / 2,
-       y: SCREEN_HEIGHT - 100, // Adjust to match new starting height
-       width: PLATFORM_WIDTH,
-       height: PLATFORM_HEIGHT,
-     };
+           // Add initial platform under player
+      const initialPlatform = {
+        x: SCREEN_WIDTH / 2 - PLATFORM_WIDTH / 2,
+        y: SCREEN_HEIGHT - 200, // Position platform below sprite spawn (sprite at -250, platform at -200)
+        width: PLATFORM_WIDTH,
+        height: PLATFORM_HEIGHT,
+      };
      platforms.current.push(initialPlatform);
 
-     // Add platforms with optimal spacing for platform-based jumping
-     for (let i = 0; i < 20; i++) {
-       const platform = {
-         x: Math.random() * (SCREEN_WIDTH - PLATFORM_WIDTH),
-         y: SCREEN_HEIGHT - 120 - i * 70, // Optimal spacing for platform jumping
-         width: PLATFORM_WIDTH,
-         height: PLATFORM_HEIGHT,
-       };
-       platforms.current.push(platform);
-     }
+         // Add platforms with optimal spacing for platform-based jumping
+    for (let i = 0; i < 20; i++) {
+      const platformWidth = RNPlatform.OS === 'web' ? PLATFORM_WIDTH * 1.5 : PLATFORM_WIDTH; // Wider platforms on web
+      const platform = {
+        x: Math.random() * (SCREEN_WIDTH - platformWidth),
+        y: SCREEN_HEIGHT - 120 - i * 70, // Optimal spacing for platform jumping
+        width: platformWidth,
+        height: PLATFORM_HEIGHT,
+      };
+      platforms.current.push(platform);
+    }
+    
+    // Sync render platforms with initial platforms
+    setRenderPlatforms([...platforms.current]);
    };
 
   // Track gesture start position for proper movement calculation
@@ -149,8 +152,8 @@ export default function PlayScreen() {
        },
                         onPanResponderMove: (_, gestureState) => {
            if (currentGameState.current.isPlaying) {
-             // Use velocity for smooth movement
-             const moveSpeed = 15.0; // Increased from 8.0 for higher drag sensitivity
+                                         // Use velocity for smooth movement
+               const moveSpeed = RNPlatform.OS === 'web' ? 2.0 : 8.0; // Much lower sensitivity for web, normal for mobile
              const deltaX = gestureState.vx * moveSpeed; // Use velocity for smooth movement
             
             const oldX = currentPlayerPos.current.x;
@@ -213,77 +216,117 @@ export default function PlayScreen() {
        newX = PLAYER_HITBOX_WIDTH / 2 - 30; // Adjust for offset
      }
 
-         // Check platform collisions
-     let onPlatform = false;
-     
-           platforms.current.forEach((platform, index) => {
-       // Calculate precise hitbox for feet collision - match the visual debug box
-       const feetCenterX = newX + 30; // Add the same offset as the visual debug box
-       const feetCenterY = newY + PLAYER_SIZE - PLAYER_FEET_OFFSET;
-       const feetLeft = feetCenterX - PLAYER_HITBOX_WIDTH / 2;
-       const feetRight = feetCenterX + PLAYER_HITBOX_WIDTH / 2;
-       const feetTop = feetCenterY - PLAYER_HITBOX_HEIGHT / 2;
-       const feetBottom = feetCenterY + PLAYER_HITBOX_HEIGHT / 2;
+                   // Camera follow (move platforms down) - DO THIS FIRST
+      if (newY < SCREEN_HEIGHT / 2) {
+        const diff = SCREEN_HEIGHT / 2 - newY;
+        newY = SCREEN_HEIGHT / 2;
+        
+        console.log('🎥 Camera moving up by:', diff, 'px');
+        console.log('🎯 Before camera move - Player Y:', newY + diff, 'Platforms count:', platforms.current.length);
+        
+        platforms.current = platforms.current.map(platform => ({
+          ...platform,
+          y: platform.y + diff,
+        }));
+
+        // Remove platforms that are off screen and add new ones
+        const beforeFilter = platforms.current.length;
+        platforms.current = platforms.current.filter(p => p.y < SCREEN_HEIGHT);
+        const afterFilter = platforms.current.length;
+        console.log('🗑️ Removed', beforeFilter - afterFilter, 'platforms below screen');
+        
+        while (platforms.current.length < 20) {
+          const platformWidth = RNPlatform.OS === 'web' ? PLATFORM_WIDTH * 1.5 : PLATFORM_WIDTH; // Wider platforms on web
+          const newPlatform = {
+            x: Math.random() * (SCREEN_WIDTH - platformWidth),
+            y: platforms.current[platforms.current.length - 1].y - 70, // Optimal spacing for platform jumping
+            width: platformWidth,
+            height: PLATFORM_HEIGHT,
+          };
+          platforms.current.push(newPlatform);
+        }
+        
+        console.log('🎯 After camera move - Player Y:', newY, 'Platforms count:', platforms.current.length);
+        console.log('📍 First few platforms Y positions:', platforms.current.slice(0, 3).map(p => p.y));
+        
+        // Sync render platforms with game platforms after camera movement
+        setRenderPlatforms([...platforms.current]);
+      }
+
+                   // Check platform collisions - AFTER camera movement
+      let onPlatform = false;
+      let hasCollided = false;
       
-             // Check if feet hitbox intersects with platform
-       if (
-         feetBottom > platform.y &&
-         feetTop < platform.y + platform.height &&
-         feetRight > platform.x &&
-         feetLeft < platform.x + platform.width &&
-         velocity.current.y > 0
-       ) {
-         // Position sprite so feet are exactly on platform
-         newY = platform.y - PLAYER_SIZE + PLAYER_FEET_OFFSET;
-         velocity.current.y = JUMP_FORCE; // Boost jump when hitting platform
-         onPlatform = true;
-       }
-    });
-
-    
-
+             for (const platform of platforms.current) {
+         if (hasCollided) break; // Exit early if we already found a collision
          
+         // Calculate precise hitbox for feet collision - match the visual debug box
+         const feetCenterX = newX + 30; // Add the same offset as the visual debug box
+         const feetCenterY = newY + PLAYER_SIZE - PLAYER_FEET_OFFSET;
+         
+         // Skip collision if we're already on this platform
+         if (Math.abs(feetCenterY - (platform.y + platform.height)) < 5) {
+           continue;
+         }
+        const feetLeft = feetCenterX - PLAYER_HITBOX_WIDTH / 2;
+        const feetRight = feetCenterX + PLAYER_HITBOX_WIDTH / 2;
+        const feetTop = feetCenterY - PLAYER_HITBOX_HEIGHT / 2;
+        const feetBottom = feetCenterY + PLAYER_HITBOX_HEIGHT / 2;
+      
+         // Check if feet hitbox intersects with platform
+         // Use exact platform coordinates for collision detection
+         const platformTop = platform.y;
+         const platformBottom = platform.y + platform.height;
+         const platformLeft = platform.x;
+         const platformRight = platform.x + platform.width;
+         
+         if (
+           feetBottom > platformTop &&
+           feetTop < platformBottom &&
+           feetRight > platformLeft &&
+           feetLeft < platformRight &&
+           velocity.current.y > 0 // Must be falling (positive Y velocity)
+                  ) {
+           console.log('💥 COLLISION DETECTED!');
+           console.log('🎯 Platform:', { x: platform.x, y: platform.y, width: platform.width, height: platform.height });
+           console.log('👣 Feet hitbox:', { left: feetLeft, right: feetRight, top: feetTop, bottom: feetBottom });
+           console.log('📍 Player position:', { x: newX, y: newY });
+           console.log('⬇️ Velocity Y:', velocity.current.y);
+          
+                       // Position sprite so feet are exactly on platform surface
+            newY = platformTop - PLAYER_SIZE + PLAYER_FEET_OFFSET;
+            
+            // Debug: Check if positioning is correct
+            console.log('🔧 Positioning debug:');
+            console.log('  - Platform top:', platformTop);
+            console.log('  - PLAYER_SIZE:', PLAYER_SIZE);
+            console.log('  - PLAYER_FEET_OFFSET:', PLAYER_FEET_OFFSET);
+            console.log('  - Calculated newY:', newY);
+            console.log('  - Feet should be at:', newY + PLAYER_SIZE - PLAYER_FEET_OFFSET);
+           velocity.current.y = JUMP_FORCE; // Boost jump when hitting platform
+           onPlatform = true;
+           hasCollided = true;
+          
+           console.log('🛬 LANDED ON PLATFORM! New Y position:', newY);
+        }
+      }
 
     // No constant jumping - sprite only jumps when hitting platforms
 
-         // Update score and verify height reached
-     const currentHeight = Math.floor((SCREEN_HEIGHT - newY) / 10);
-     if (currentHeight > currentGameState.current.score) {
-       const updatedState = { ...currentGameState.current, score: currentHeight };
-       setGameState(updatedState);
-       currentGameState.current = updatedState;
-       gameVerification.updateMaxHeight(currentHeight);
-     }
+    // Update score and verify height reached
+    const currentHeight = Math.floor((SCREEN_HEIGHT - newY) / 10);
+    if (currentHeight > currentGameState.current.score) {
+      const updatedState = { ...currentGameState.current, score: currentHeight };
+      setGameState(updatedState);
+      currentGameState.current = updatedState;
+      gameVerification.updateMaxHeight(currentHeight);
+    }
 
-         // Game over condition - check if sprite has fallen below the screen
-     if (newY > SCREEN_HEIGHT + PLAYER_SIZE) {
-       endGame();
-       return;
-     }
-
-         // Camera follow (move platforms down)
-     if (newY < SCREEN_HEIGHT / 2) {
-       const diff = SCREEN_HEIGHT / 2 - newY;
-       newY = SCREEN_HEIGHT / 2;
-       
-       platforms.current = platforms.current.map(platform => ({
-         ...platform,
-         y: platform.y + diff,
-       }));
-
-       // Remove platforms that are off screen and add new ones
-       platforms.current = platforms.current.filter(p => p.y < SCREEN_HEIGHT);
-       
-       while (platforms.current.length < 20) {
-         const newPlatform = {
-           x: Math.random() * (SCREEN_WIDTH - PLATFORM_WIDTH),
-           y: platforms.current[platforms.current.length - 1].y - 70, // Optimal spacing for platform jumping
-           width: PLATFORM_WIDTH,
-           height: PLATFORM_HEIGHT,
-         };
-         platforms.current.push(newPlatform);
-       }
-     }
+    // Game over condition - check if sprite has fallen below the screen
+    if (newY > SCREEN_HEIGHT + PLAYER_SIZE) {
+      endGame();
+      return;
+    }
 
          currentPlayerPos.current = { x: newX, y: newY };
      playerPos.setValue({ x: newX, y: newY });
@@ -336,9 +379,9 @@ export default function PlayScreen() {
        setGameState(newGameState);
        currentGameState.current = newGameState;
        
-       // Start with small downward velocity to ensure immediate falling
-       const initialVelocity = { x: 0, y: 1 }; // Start with slight downward velocity
-       const initialPosition = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 150 }; // Start higher
+               // Start with small downward velocity to ensure immediate falling
+        const initialVelocity = { x: 0, y: 1 }; // Start with slight downward velocity
+        const initialPosition = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 250 }; // Start much higher
        
        velocity.current = initialVelocity;
        currentPlayerPos.current = initialPosition;
@@ -372,10 +415,10 @@ export default function PlayScreen() {
      setGameState(resetState);
      currentGameState.current = resetState;
      
-     // Reset physics state
-     velocity.current = { x: 0, y: 0 };
-     currentPlayerPos.current = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 150 };
-     playerPos.setValue({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 150 });
+           // Reset physics state
+      velocity.current = { x: 0, y: 0 };
+      currentPlayerPos.current = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 250 };
+      playerPos.setValue({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 250 });
      
      // Clear platforms
      platforms.current = [];
@@ -404,7 +447,7 @@ export default function PlayScreen() {
      currentGameState.current = endState;
 
            // Verify and record the score
-      if (mockAccount?.bech32Address && currentSession.current) {
+      if ((RNPlatform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account)?.bech32Address && currentSession.current) {
        try {
          // End game session with verification
          await gameVerification.endGameSession(finalScore);
@@ -434,7 +477,7 @@ export default function PlayScreen() {
      };
    }, []);
 
-     if (!mockIsConnected) {
+     if (!(RNPlatform.OS === 'web' ? true : isConnected)) {
      return (
        <ThemedView style={styles.container}>
          <ThemedText style={styles.title}>Pet Jump Game</ThemedText>
@@ -466,22 +509,22 @@ export default function PlayScreen() {
         )}
       </Animated.View>
 
-             {platforms.current.map((platform, index) => (
-         <View key={`platform-${index}`}>
-           {/* Actual platform (blue) */}
-           <View
-             style={[
-               styles.platform,
-               {
-                 left: platform.x,
-                 top: platform.y,
-                 width: platform.width,
-                 height: platform.height,
-               },
-             ]}
-           />
-         </View>
-       ))}
+                           {renderPlatforms.map((platform, index) => (
+                <View key={`platform-${index}`}>
+                  {/* Actual platform (blue) */}
+                  <View
+                    style={[
+                      styles.platform,
+                      {
+                        left: platform.x,
+                        top: platform.y,
+                        width: platform.width,
+                        height: platform.height,
+                      },
+                    ]}
+                  />
+                </View>
+              ))}
 
       {/* Quick swap UI */}
       {activePet && (
@@ -559,12 +602,19 @@ export default function PlayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
-    // Add subtle pattern to indicate draggable area
-    position: 'relative',
-  },
+     container: {
+     flex: 1,
+     backgroundColor: '#f0f0f0',
+     // Add subtle pattern to indicate draggable area
+     position: 'relative',
+     // Prevent text selection on web
+     ...(RNPlatform.OS === 'web' && {
+       userSelect: 'none',
+       WebkitUserSelect: 'none',
+       MozUserSelect: 'none',
+       msUserSelect: 'none',
+     }),
+   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -598,11 +648,6 @@ const styles = StyleSheet.create({
     width: PLAYER_SIZE,
     height: PLAYER_SIZE,
     backgroundColor: 'transparent',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
   },
   platform: {
     position: 'absolute',
