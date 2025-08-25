@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Pressable, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAbstraxionAccount, useAbstraxionSigningClient, useAbstraxionClient } from "@burnt-labs/abstraxion-react-native";
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Pet } from '@/components/Pet';
 import { PetType, PetStats } from '@/types/pet';
 
@@ -30,11 +31,40 @@ export default function HomeScreen() {
   const { client: queryClient } = useAbstraxionClient();
   const [hasStarterPet, setHasStarterPet] = useState(false);
   const [isClaimingPet, setIsClaimingPet] = useState(false);
+  const [isCheckingPet, setIsCheckingPet] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const hasCheckedRef = useRef(false);
 
   // Check if user has a starter pet from on-chain storage
   useEffect(() => {
+    // Reset the ref when connection state changes
+    if (isConnected && !hasCheckedRef.current) {
+      hasCheckedRef.current = true;
+    } else if (!isConnected) {
+      hasCheckedRef.current = false;
+    }
+
+    // Prevent infinite loop by checking if we've already processed this state
+    if (hasCheckedRef.current && isConnected) {
+      console.log('🔄 Already checked for connected state, skipping...');
+      return;
+    }
+
+    console.log('🔍 useEffect triggered:', {
+      hasAccount: !!account?.bech32Address,
+      hasQueryClient: !!queryClient,
+      isConnected,
+      isInitialized,
+      isCheckingPet
+    });
+
     const checkStarterPet = async () => {
+      console.log('🚀 Starting checkStarterPet');
+      hasCheckedRef.current = true;
+      
       if (account?.bech32Address && queryClient) {
+        console.log('✅ Account and queryClient available, checking pet...');
+        setIsCheckingPet(true);
         try {
           // Query the user map contract to get user's pet data
           const response = await queryClient.queryContractSmart(
@@ -42,33 +72,54 @@ export default function HomeScreen() {
             { get_value_by_user: { address: account.bech32Address } }
           );
           
+          console.log('📡 Contract response:', response);
+          
           if (response && typeof response === 'string') {
             try {
               const userData = JSON.parse(response);
+              console.log('📊 Parsed user data:', userData);
               setHasStarterPet(userData.hasStarterPet === true);
+              console.log('🐱 Set hasStarterPet to:', userData.hasStarterPet === true);
             } catch (parseError) {
-              // If response is not valid JSON or doesn't have pet data, user hasn't claimed
+              console.log('❌ Parse error, setting hasStarterPet to false');
               setHasStarterPet(false);
             }
           } else {
+            console.log('📭 No response, setting hasStarterPet to false');
             setHasStarterPet(false);
           }
         } catch (error) {
+          console.log('🚨 Error checking pet:', error.message);
           // If user has no data stored, they haven't claimed a starter pet
           if (error.message && error.message.includes("not found") || 
               error.message && error.message.includes("No value found") ||
               error.message && error.message.includes("unknown request")) {
+            console.log('👤 User not found, setting hasStarterPet to false');
             setHasStarterPet(false);
           } else {
             console.error('Error checking starter pet:', error);
             setHasStarterPet(false);
           }
+        } finally {
+          console.log('🏁 Finally block - setting isCheckingPet to false and isInitialized to true');
+          setIsCheckingPet(false);
+          setIsInitialized(true);
         }
+      } else if (!isConnected) {
+        console.log('🔌 Not connected, setting timeout for initialization');
+        // If not connected, mark as initialized after a brief delay to show loading
+        setTimeout(() => {
+          console.log('⏰ Timeout completed, setting isInitialized to true');
+          setIsInitialized(true);
+        }, 500);
+      } else {
+        console.log('❓ Neither condition met, setting isInitialized to true');
+        setIsInitialized(true);
       }
     };
 
     checkStarterPet();
-  }, [account, queryClient]);
+  }, [account?.bech32Address, queryClient, isConnected]);
 
   const handleClaimStarterPet = async () => {
     if (!account?.bech32Address || !signingClient) {
@@ -128,7 +179,25 @@ export default function HomeScreen() {
     }
   };
 
+  // Show loading spinner until both wallet connectivity and pet status are confirmed
+  console.log('🎯 Render decision:', {
+    isInitialized,
+    isConnected,
+    hasStarterPet,
+    isCheckingPet
+  });
+
+  if (!isInitialized) {
+    console.log('🔄 Showing loading screen');
+    return (
+      <ThemedView style={styles.container}>
+        <LoadingSpinner />
+      </ThemedView>
+    );
+  }
+
   if (!isConnected) {
+    console.log('🔌 Showing connect wallet screen');
     return (
       <ThemedView style={styles.container}>
         <Image
@@ -181,9 +250,11 @@ export default function HomeScreen() {
              onPress={handleClaimStarterPet}
              disabled={isClaimingPet}
            >
-             <ThemedText style={styles.buttonText}>
-               {isClaimingPet ? 'Claiming...' : 'Claim Starter Pet'}
-             </ThemedText>
+             {isClaimingPet ? (
+               <LoadingSpinner inline />
+             ) : (
+               <ThemedText style={styles.buttonText}>Claim Starter Pet</ThemedText>
+             )}
            </Pressable>
         </>
       ) : (

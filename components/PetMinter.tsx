@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable, Alert } from 'react-native';
 import { useAbstraxionAccount, useAbstraxionSigningClient } from "@burnt-labs/abstraxion-react-native";
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
+import { LoadingSpinner } from './LoadingSpinner';
 
 import { PetType, PetRarity, RARITY_CHANCES } from '../types/pet';
 
@@ -184,9 +185,11 @@ export function PetMinter({ onPetMinted }: PetMinterProps) {
         disabled={!selectedPet || isMinting}
         onPress={() => selectedPet && handleMint(selectedPet)}
       >
-        <ThemedText style={styles.mintButtonText}>
-          {isMinting ? 'Minting...' : 'Mint Pet'}
-        </ThemedText>
+                 {isMinting ? (
+           <LoadingSpinner inline />
+         ) : (
+           <ThemedText style={styles.mintButtonText}>Mint Pet</ThemedText>
+         )}
       </Pressable>
     </ThemedView>
   );

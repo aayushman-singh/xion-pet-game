@@ -4,6 +4,7 @@ import { Pet } from '@/components/Pet';
 import { PetHouse } from '@/components/PetHouse';
 import { Decoration } from '@/components/Decoration';
 import { ThemedText } from '@/components/ThemedText';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAbstraxionAccount, useAbstraxionClient, useAbstraxionSigningClient } from "@burnt-labs/abstraxion-react-native";
 import { canPetFly } from '@/types/pet';
 
@@ -527,9 +528,9 @@ export default function PetScreen() {
 
   if (isLoading) {
     return (
-      <ScrollView style={styles.container}>
-        <ThemedText style={styles.loadingText}>Loading your pet...</ThemedText>
-      </ScrollView>
+      <View style={styles.container}>
+        <LoadingSpinner />
+      </View>
     );
   }
 
@@ -641,7 +642,7 @@ export default function PetScreen() {
                        <ThemedText style={styles.mintEmoji}>🐱</ThemedText>
                        <ThemedText style={styles.mintTitle}>Pet NFT</ThemedText>
                        <ThemedText style={styles.mintPrice}>0.5 XION</ThemedText>
-                       {isMinting && <ThemedText style={styles.mintLoadingText}>⏳</ThemedText>}
+                       {isMinting && <LoadingSpinner inline />}
                      </Pressable>
                      <Pressable 
                        style={[styles.mintCard, isMinting && styles.disabledCard]}
@@ -651,7 +652,7 @@ export default function PetScreen() {
                        <ThemedText style={styles.mintEmoji}>🪑</ThemedText>
                        <ThemedText style={styles.mintTitle}>Furniture NFT</ThemedText>
                        <ThemedText style={styles.mintPrice}>0.3 XION</ThemedText>
-                       {isMinting && <ThemedText style={styles.mintLoadingText}>⏳</ThemedText>}
+                       {isMinting && <LoadingSpinner inline />}
                      </Pressable>
                      <Pressable 
                        style={[styles.mintCard, isMinting && styles.disabledCard]}
@@ -661,7 +662,7 @@ export default function PetScreen() {
                        <ThemedText style={styles.mintEmoji}>🌿</ThemedText>
                        <ThemedText style={styles.mintTitle}>Decoration NFT</ThemedText>
                        <ThemedText style={styles.mintPrice}>0.2 XION</ThemedText>
-                       {isMinting && <ThemedText style={styles.mintLoadingText}>⏳</ThemedText>}
+                       {isMinting && <LoadingSpinner inline />}
                      </Pressable>
                    </View>
                  </View>
@@ -704,9 +705,13 @@ export default function PetScreen() {
                {/* User Balance Display - Bottom Right */}
                <View style={styles.balanceContainerBottom}>
                  <ThemedText style={styles.balanceLabelBottom}>Balance:</ThemedText>
-                 <ThemedText style={styles.balanceAmountBottom}>
-                   {isLoadingBalance ? 'Loading...' : `${parseInt(userBalance) / 1000000} XION`}
-                 </ThemedText>
+                 <View style={styles.balanceAmountContainer}>
+                   {isLoadingBalance ? (
+                     <LoadingSpinner inline />
+                   ) : (
+                     <ThemedText style={styles.balanceAmountBottom}>{`${parseInt(userBalance) / 1000000} XION`}</ThemedText>
+                   )}
+                 </View>
                </View>
            </View>
          </View>
@@ -1034,5 +1039,9 @@ const styles = StyleSheet.create({
     color: '#2D3748',
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  balanceAmountContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
