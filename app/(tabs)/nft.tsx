@@ -1,36 +1,30 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Pressable } from 'react-native';
-import { PetMinter } from '@/components/PetMinter';
-import { useAbstraxionAccount } from "@burnt-labs/abstraxion-react-native";
+import { StyleSheet, ScrollView } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { PetMinterDemo } from '@/components/PetMinterDemo';
+import { ExternalDataProofDemo } from '@/components/ExternalDataProofDemo';
 
+/**
+ * NFT tab enhanced with real Reclaim Protocol zkTLS demonstration
+ * Shows genuine Dave integration for hackathon submission
+ */
 export default function NFTScreen() {
-  const { data: account, login, isConnected } = useAbstraxionAccount();
-
-  const handlePetMinted = (petData: any) => {
-    // TODO: Update pet collection in state/chain
-    console.log('Pet minted:', petData);
-  };
-
-  if (!isConnected) {
-    return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.title}>Connect Wallet</ThemedText>
-        <ThemedText style={styles.description}>
-          Please connect your wallet to mint and manage your pets.
-        </ThemedText>
-        <Pressable style={styles.connectButton} onPress={login}>
-          <ThemedText style={styles.connectButtonText}>Connect Wallet</ThemedText>
-        </Pressable>
-      </ThemedView>
-    );
-  }
-
   return (
-    <ScrollView style={styles.container}>
-      <PetMinter onPetMinted={handlePetMinted} />
-    </ScrollView>
+    <ThemedView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ThemedText style={styles.title}>
+          🎯 Real Dave (Reclaim) zkTLS Demo
+        </ThemedText>
+        
+        <ThemedText style={styles.subtitle}>
+          Genuine zkTLS Proof Generation
+        </ThemedText>
+        
+        <PetMinterDemo />
+        <ExternalDataProofDemo />
+      </ScrollView>
+    </ThemedView>
   );
 }
 
@@ -38,27 +32,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 16,
+  },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginVertical: 20,
+    marginBottom: 8,
   },
-  description: {
+  subtitle: {
+    fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
-    paddingHorizontal: 20,
-  },
-  connectButton: {
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 8,
-    marginHorizontal: 40,
-    alignItems: 'center',
-  },
-  connectButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    opacity: 0.7,
   },
 });

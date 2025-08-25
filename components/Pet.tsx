@@ -12,6 +12,9 @@ import { ThemedText } from './ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { PetSVG } from './PetSVG';
 import { usePetCare } from '../hooks/usePetCare';
+import { useDaveIntegration } from '../hooks/useDaveIntegration';
+import { useAbstraxionAccount } from '@burnt-labs/abstraxion-react-native';
+import { formatTimeRemaining } from '../types/petCareTimers';
 
 import { Pet as PetType, PetRarity, PetStats, PetStatus } from '../types/pet';
 import { PetRarity as PetRarityComponent } from './PetRarity';
@@ -50,14 +53,18 @@ export function Pet({
     performAction,
     getStatusDescription
   } = usePetCare(petStatus);
+  
+  // Dave XION SDK integration for zkTLS proofs
+  const { generatePetCareProof, isGeneratingProof, getProviderIds } = useDaveIntegration();
+  const { data: account } = useAbstraxionAccount();
   // Animation values
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const bounceHeight = useSharedValue(0);
   
   // Theme colors
-  const backgroundColor = useThemeColor('background');
-  const textColor = useThemeColor('text');
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
 
   // Animated styles
   const petStyle = useAnimatedStyle(() => {
@@ -66,7 +73,7 @@ export function Pet({
         { scale: scale.value },
         { rotate: `${rotation.value}deg` },
         { translateY: bounceHeight.value },
-      ],
+      ] as const,
     };
   });
 
@@ -101,17 +108,43 @@ export function Pet({
     onPet?.();
   };
 
-  const handleFeed = () => {
+  const handleFeed = async () => {
     if (feedCooldown === 0 && status) {
       playFeedAnimation();
+      
+      // Generate real zkTLS proof for the feeding action using Reclaim Protocol
+      try {
+        const providerIds = getProviderIds();
+        const proof = await generatePetCareProof(name, 'feed', status.happiness, account?.bech32Address, providerIds.petCare);
+        console.log('🍽️ Generated real zkTLS proof for feeding:', proof.id);
+        if ('reclaim_proof' in proof && proof.reclaim_proof) {
+          console.log('✅ Using genuine Reclaim Protocol proof');
+        }
+      } catch (error) {
+        console.warn('zkTLS proof generation failed, continuing with action:', error);
+      }
+      
       performAction({ type: 'feed', timestamp: Date.now(), petId: name });
       onFeed?.();
     }
   };
 
-  const handlePlay = () => {
+  const handlePlay = async () => {
     if (playCooldown === 0 && status) {
       playBounceAnimation();
+      
+      // Generate real zkTLS proof for the play action using Reclaim Protocol
+      try {
+        const providerIds = getProviderIds();
+        const proof = await generatePetCareProof(name, 'play', status.happiness, account?.bech32Address, providerIds.petCare);
+        console.log('🎮 Generated real zkTLS proof for playing:', proof.id);
+        if ('reclaim_proof' in proof && proof.reclaim_proof) {
+          console.log('✅ Using genuine Reclaim Protocol proof');
+        }
+      } catch (error) {
+        console.warn('zkTLS proof generation failed, continuing with action:', error);
+      }
+      
       performAction({ type: 'play', timestamp: Date.now(), petId: name });
       onPlay?.();
     }
@@ -160,7 +193,7 @@ export function Pet({
               <ThemedText>Feed</ThemedText>
               {feedCooldown > 0 && (
                 <ThemedText style={styles.cooldown}>
-                  {Math.ceil(feedCooldown / 1000)}s
+                  {formatTimeRemaining(feedCooldown)}
                 </ThemedText>
               )}
             </Pressable>
@@ -172,7 +205,7 @@ export function Pet({
               <ThemedText>Play</ThemedText>
               {playCooldown > 0 && (
                 <ThemedText style={styles.cooldown}>
-                  {Math.ceil(playCooldown / 1000)}s
+                  {formatTimeRemaining(playCooldown)}
                 </ThemedText>
               )}
             </Pressable>

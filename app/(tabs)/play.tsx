@@ -7,7 +7,8 @@ import { useAbstraxionAccount } from "@burnt-labs/abstraxion-react-native";
 import { PetSVG } from '@/components/PetSVG';
 import { GameVerificationService } from '@/services/gameVerification';
 import { XIONVerificationService } from '@/services/verification';
-import type { GameScore } from '@/types/zkTLS';
+import { useDaveIntegration } from '@/hooks/useDaveIntegration';
+// import type { GameScore } from '@/types/zkTLS'; // Not needed
 import { QuickSwapPets } from '@/components/QuickSwapPets';
 import type { Pet } from '@/types/pet';
 import { PetRarity } from '@/types/pet';
@@ -16,6 +17,7 @@ import { PET_BONUSES } from '@/types/petBonuses';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+
 const GRAVITY = 0.8; // Normal gravity for natural falling
 const JUMP_FORCE = -18; // Strong jump when hitting platforms
 const PLATFORM_HEIGHT = 15;
@@ -33,6 +35,7 @@ const DEBUG_LOG = (category: string, message: string, data?: any) => {
     console.log(`[${timestamp}] [${category}] ${message}`, data || '');
   }
 };
+
 
 interface Platform {
   x: number;
@@ -83,6 +86,9 @@ export default function PlayScreen() {
   
   const gameVerification = useRef(new GameVerificationService()).current;
   const currentSession = useRef<GameSession | null>(null);
+  
+  // Dave XION SDK integration for zkTLS proofs (HACKATHON DEMO)
+  const { generateGameProof, isGeneratingProof, getProviderIds } = useDaveIntegration();
 
   // Mock pets data - replace with your actual pets data
   const availablePets: Pet[] = [
@@ -95,7 +101,7 @@ export default function PlayScreen() {
 
   // Game physics state
   const playerPos = useRef(new Animated.ValueXY({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 })).current;
-  const velocity = useRef({ x: 0, y: 0 });
+  const velocity = useRef({ x: 0, y: 0 }); // Start with no velocity
   const platforms = useRef<Platform[]>([]);
   const animationFrame = useRef<number | null>(null);
   const currentPlayerPos = useRef({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 });
@@ -183,6 +189,7 @@ export default function PlayScreen() {
   const gameLoop = () => {
     if (!currentGameState.current.isPlaying) {
       return;
+
     }
 
     const currentTime = Date.now();
@@ -196,11 +203,20 @@ export default function PlayScreen() {
     
     lastFrameTime.current = currentTime;
 
+
     // Apply gravity
     velocity.current.y += GRAVITY;
 
+    // Handle horizontal movement based on touch
+    if (movementDirection.current !== 0) {
+      velocity.current.x = movementDirection.current * MOVEMENT_SPEED;
+    } else {
+      // Gradually slow down horizontal movement
+      velocity.current.x *= 0.8;
+    }
+
     // Update player position
-    let newX = currentPlayerPos.current.x;
+    let newX = currentPlayerPos.current.x + velocity.current.x;
     let newY = currentPlayerPos.current.y + velocity.current.y;
 
          // Screen wrapping for x-axis - use feet hitbox for more accurate bounds
@@ -241,7 +257,6 @@ export default function PlayScreen() {
        }
     });
 
-    
 
          // Update platform state for debugging
      setIsOnPlatform(onPlatform);

@@ -7,7 +7,6 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -18,17 +17,18 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 
 import { Buffer } from "buffer";
 import crypto from "react-native-quick-crypto";
-global.crypto = crypto;
+global.crypto = crypto as any;
 global.Buffer = Buffer;
 
+// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 const treasuryConfig = {
-  treasury: process.env.EXPO_PUBLIC_TREASURY_CONTRACT_ADDRESS,
-  gasPrice: "0.001uxion",
+  treasury: process.env.EXPO_PUBLIC_TREASURY_CONTRACT_ADDRESS, // Example XION treasury instance
+  gasPrice: "0.001uxion", // If you feel the need to change the gasPrice when connecting to signer, set this value. Please stick to the string format seen in example
   rpcUrl: process.env.EXPO_PUBLIC_RPC_ENDPOINT,
   restUrl: process.env.EXPO_PUBLIC_REST_ENDPOINT,
-  callbackUrl: "xion-pet-game://",
+  callbackUrl: "xion-pet-game://", // this comes from app.json scheme
 };
 
 export default function RootLayout() {
@@ -48,16 +48,14 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <AbstraxionProvider config={treasuryConfig}>
-        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </AbstraxionProvider>
-    </GestureHandlerRootView>
+    <AbstraxionProvider config={treasuryConfig}>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </AbstraxionProvider>
   );
 }

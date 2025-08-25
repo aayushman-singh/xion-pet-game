@@ -28,9 +28,21 @@ export enum PetRarity {
   LEGENDARY = 'legendary'
 }
 
+export const RARITY_COLORS: Record<PetRarity, string> = {
+  [PetRarity.COMMON]: '#9CA3AF',
+  [PetRarity.RARE]: '#3B82F6',
+  [PetRarity.EPIC]: '#8B5CF6',
+  [PetRarity.LEGENDARY]: '#F59E0B',
+};
+
 export interface PetStatus extends VerifiableData {
+  petId: string;      // Pet identifier
   happiness: number;  // 0-100
   energy: number;     // 0-100
+  hunger: number;     // 0-100 (hunger level)
+  cleanliness: number; // 0-100 (cleanliness level)
+  careStreak: number; // Number of consecutive care actions
+  owner?: string;     // Owner address (optional)
   lastFed: number;    // timestamp
   lastPlayed: number; // timestamp
   lastUpdated: number; // timestamp for degradation calculation

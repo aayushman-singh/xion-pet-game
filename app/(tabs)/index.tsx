@@ -3,6 +3,7 @@ import { StyleSheet, Pressable, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAbstraxionAccount, useAbstraxionSigningClient, useAbstraxionClient } from "@burnt-labs/abstraxion-react-native";
 import { ThemedView } from '@/components/ThemedView';
+import { XionDemoStatus } from '@/components/XionDemoStatus';
 import { ThemedText } from '@/components/ThemedText';
 import { Pet } from '@/components/Pet';
 import { PetType, PetStats } from '@/types/pet';
@@ -154,6 +155,7 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <XionDemoStatus />
       <Pressable 
         style={styles.logoutButtonTop}
         onPress={logout}
