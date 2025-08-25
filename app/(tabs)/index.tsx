@@ -39,13 +39,20 @@ export default function HomeScreen() {
   useEffect(() => {
     // Reset the ref when connection state changes
     if (isConnected && !hasCheckedRef.current) {
-      hasCheckedRef.current = true;
+      hasCheckedRef.current = false; // Reset to allow checking when connected
     } else if (!isConnected) {
       hasCheckedRef.current = false;
+      setIsInitialized(false); // Reset initialization when disconnected
+    }
+
+    // Only proceed if we have the necessary dependencies and haven't checked yet
+    if (!account?.bech32Address || !queryClient || !isConnected) {
+      console.log('🔌 Waiting for wallet connection and dependencies...');
+      return;
     }
 
     // Prevent infinite loop by checking if we've already processed this state
-    if (hasCheckedRef.current && isConnected) {
+    if (hasCheckedRef.current) {
       console.log('🔄 Already checked for connected state, skipping...');
       return;
     }
@@ -61,59 +68,46 @@ export default function HomeScreen() {
     const checkStarterPet = async () => {
       console.log('🚀 Starting checkStarterPet');
       hasCheckedRef.current = true;
+      setIsCheckingPet(true);
       
-      if (account?.bech32Address && queryClient) {
-        console.log('✅ Account and queryClient available, checking pet...');
-        setIsCheckingPet(true);
-        try {
-          // Query the user map contract to get user's pet data
-          const response = await queryClient.queryContractSmart(
-            process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS,
-            { get_value_by_user: { address: account.bech32Address } }
-          );
-          
-          console.log('📡 Contract response:', response);
-          
-          if (response && typeof response === 'string') {
-            try {
-              const userData = JSON.parse(response);
-              console.log('📊 Parsed user data:', userData);
-              setHasStarterPet(userData.hasStarterPet === true);
-              console.log('🐱 Set hasStarterPet to:', userData.hasStarterPet === true);
-            } catch (parseError) {
-              console.log('❌ Parse error, setting hasStarterPet to false');
-              setHasStarterPet(false);
-            }
-          } else {
-            console.log('📭 No response, setting hasStarterPet to false');
+      try {
+        // Query the user map contract to get user's pet data
+        const response = await queryClient.queryContractSmart(
+          process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS,
+          { get_value_by_user: { address: account.bech32Address } }
+        );
+        
+        console.log('📡 Contract response:', response);
+        
+        if (response && typeof response === 'string') {
+          try {
+            const userData = JSON.parse(response);
+            console.log('📊 Parsed user data:', userData);
+            setHasStarterPet(userData.hasStarterPet === true);
+            console.log('🐱 Set hasStarterPet to:', userData.hasStarterPet === true);
+          } catch (parseError) {
+            console.log('❌ Parse error, setting hasStarterPet to false');
             setHasStarterPet(false);
           }
-        } catch (error) {
-          console.log('🚨 Error checking pet:', error.message);
-          // If user has no data stored, they haven't claimed a starter pet
-          if (error.message && error.message.includes("not found") || 
-              error.message && error.message.includes("No value found") ||
-              error.message && error.message.includes("unknown request")) {
-            console.log('👤 User not found, setting hasStarterPet to false');
-            setHasStarterPet(false);
-          } else {
-            console.error('Error checking starter pet:', error);
-            setHasStarterPet(false);
-          }
-        } finally {
-          console.log('🏁 Finally block - setting isCheckingPet to false and isInitialized to true');
-          setIsCheckingPet(false);
-          setIsInitialized(true);
+        } else {
+          console.log('📭 No response, setting hasStarterPet to false');
+          setHasStarterPet(false);
         }
-      } else if (!isConnected) {
-        console.log('🔌 Not connected, setting timeout for initialization');
-        // If not connected, mark as initialized after a brief delay to show loading
-        setTimeout(() => {
-          console.log('⏰ Timeout completed, setting isInitialized to true');
-          setIsInitialized(true);
-        }, 500);
-      } else {
-        console.log('❓ Neither condition met, setting isInitialized to true');
+      } catch (error) {
+        console.log('🚨 Error checking pet:', error.message);
+        // If user has no data stored, they haven't claimed a starter pet
+        if (error.message && error.message.includes("not found") || 
+            error.message && error.message.includes("No value found") ||
+            error.message && error.message.includes("unknown request")) {
+          console.log('👤 User not found, setting hasStarterPet to false');
+          setHasStarterPet(false);
+        } else {
+          console.error('Error checking starter pet:', error);
+          setHasStarterPet(false);
+        }
+      } finally {
+        console.log('🏁 Finally block - setting isCheckingPet to false and isInitialized to true');
+        setIsCheckingPet(false);
         setIsInitialized(true);
       }
     };
@@ -187,15 +181,18 @@ export default function HomeScreen() {
     isCheckingPet
   });
 
-  if (!isInitialized) {
-    console.log('🔄 Showing loading screen');
+  // Show loading screen while checking pet status after connection
+  if (isConnected && !isInitialized) {
+    console.log('🔄 Showing loading screen while checking pet status');
     return (
       <ThemedView style={styles.container}>
         <LoadingSpinner />
+        <ThemedText style={styles.loadingText}>Checking your pet status...</ThemedText>
       </ThemedView>
     );
   }
 
+  // Show connect wallet screen when not connected
   if (!isConnected) {
     console.log('🔌 Showing connect wallet screen');
     return (
@@ -374,5 +371,11 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  loadingText: {
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.8,
+    marginTop: 20,
   },
 });

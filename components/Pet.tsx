@@ -122,7 +122,7 @@ export function Pet({
     return (
       <Pressable onPress={handlePet}>
         <Animated.View style={[styles.pet, petStyle]}>
-          <PetSVG type={type} size={120} isAnimating={true} rarity={rarity} />
+          <PetSVG type={type} size={100} isAnimating={true} rarity={rarity} />
         </Animated.View>
       </Pressable>
     );
@@ -135,7 +135,7 @@ export function Pet({
       
       <Pressable onPress={handlePet}>
         <Animated.View style={[styles.pet, petStyle]}>
-          <PetSVG type={type} size={120} isAnimating={true} rarity={rarity} />
+          <PetSVG type={type} size={100} isAnimating={true} rarity={rarity} />
         </Animated.View>
       </Pressable>
 
@@ -205,9 +205,9 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   petPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
   status: {
     alignItems: 'center',

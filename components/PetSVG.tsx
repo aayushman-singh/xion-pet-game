@@ -50,17 +50,17 @@ export function PetSVG({ type, size = 120, isAnimating = true, rarity = 'common'
   const getRarityShadow = () => {
     switch (rarity) {
       case 'common':
-        return { color: 'rgba(34, 197, 94, 0.25)', size: size * 1.05 }; // Green
+        return { color: 'rgba(34, 197, 94, 0.1)', size: size * 1.05 }; // Green
       case 'rare':
-        return { color: 'rgba(59, 130, 246, 0.3)', size: size * 1.08 }; // Blue
+        return { color: 'rgba(59, 130, 246, 0.12)', size: size * 1.08 }; // Blue
       case 'epic':
-        return { color: 'rgba(147, 51, 234, 0.35)', size: size * 1.1 }; // Purple
+        return { color: 'rgba(147, 51, 234, 0.15)', size: size * 1.1 }; // Purple
       case 'legendary':
-        return { color: 'rgba(245, 158, 11, 0.4)', size: size * 1.12 }; // Gold
+        return { color: 'rgba(245, 158, 11, 0.18)', size: size * 1.12 }; // Gold
       case 'mythical':
-        return { color: 'rgba(236, 72, 153, 0.45)', size: size * 1.15 }; // Pink/Magenta
+        return { color: 'rgba(236, 72, 153, 0.2)', size: size * 1.15 }; // Pink/Magenta
       default:
-        return { color: 'rgba(34, 197, 94, 0.25)', size: size * 1.05 };
+        return { color: 'rgba(34, 197, 94, 0.1)', size: size * 1.05 };
     }
   };
 
@@ -73,7 +73,7 @@ export function PetSVG({ type, size = 120, isAnimating = true, rarity = 'common'
       // Fallback to cat sprite if sprite not found
       console.warn(`Pet sprite not found: ${spriteName}, falling back to cat-sprite`);
       return (
-        <View style={[styles.petContainer, { width: size, height: size }]}>
+        <View style={[styles.petContainer, { width: size * 1.2, height: size * 1.2 }]}>
           <Image
             source={PET_SPRITES['cat-sprite']}
             style={[styles.petImage, { width: size, height: size }]}
@@ -84,7 +84,7 @@ export function PetSVG({ type, size = 120, isAnimating = true, rarity = 'common'
     }
 
     return (
-      <View style={[styles.petContainer, { width: size, height: size }]}>
+      <View style={[styles.petContainer, { width: size * 1.2, height: size * 1.2 }]}>
         <Image
           source={spriteSource}
           style={[styles.petImage, { width: size, height: size }]}
@@ -159,8 +159,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
 });

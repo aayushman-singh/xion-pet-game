@@ -117,11 +117,7 @@ export function PetHouse({ items, onItemMove, scene = 'inside' }: PetHouseProps)
           {renderGrid()}
           {renderItems()}
           
-          {/* Height restriction indicators - dynamic based on scene */}
-          <View style={[styles.restrictionLine, { top: (currentScene === 'outside' ? 6 : 4) * CELL_SIZE }]} />
-          <ThemedText style={[styles.restrictionLabel, { top: (currentScene === 'outside' ? 6 : 4) * CELL_SIZE - 20 }]}>
-            Ground Level (y={currentScene === 'outside' ? '6' : '4'})
-          </ThemedText>
+          {/* Height restriction indicators - hidden visually but logic remains in backend */}
         </View>
       </ScrollView>
       
@@ -292,21 +288,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 2, // Ensure items appear above background and grid
   },
-  restrictionLine: {
-    position: 'absolute',
-    left: 0,
-    width: '100%',
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)', // Subtle white line
-    zIndex: 1,
-  },
-  restrictionLabel: {
-    position: 'absolute',
-    left: 10,
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: 'bold',
-    zIndex: 1,
-  },
+
 
 });
