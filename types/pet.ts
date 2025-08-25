@@ -10,6 +10,7 @@ export interface Pet {
   rarity?: PetRarity;
   image?: string;
   type?: string; // Pet type for sprite rendering
+  owned?: boolean; // Whether the user owns this pet
 }
 
 export interface PetStats {

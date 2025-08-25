@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import { StyleSheet, View, ScrollView, Pressable, Dimensions } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
@@ -27,6 +27,7 @@ export function PetSelector({
   };
 
   const canSelectMore = selectedPets.length < maxSelections;
+  const isPetOwned = (pet: PetType) => pet.owned === true;
 
   return (
     <ThemedView style={styles.container}>
@@ -41,18 +42,22 @@ export function PetSelector({
       >
         {pets.map((pet) => {
           const isSelected = isPetSelected(pet);
+          const isOwned = isPetOwned(pet);
+          const canSelect = (isSelected || canSelectMore) && isOwned;
+          
           return (
             <Pressable
               key={pet.id}
               onPress={() => {
-                if (isSelected || canSelectMore) {
+                if (canSelect) {
                   onSelectPet(pet);
                 }
               }}
               style={[
                 styles.petItem,
                 isSelected && styles.selectedPet,
-                !canSelectMore && !isSelected && styles.disabledPet
+                !isOwned && styles.unownedPet,
+                !canSelect && !isSelected && styles.disabledPet
               ]}
             >
               <PetSVG
@@ -61,16 +66,34 @@ export function PetSelector({
                 isAnimating={false}
                 rarity={pet.rarity}
               />
-              <ThemedText style={styles.petName}>{pet.name}</ThemedText>
-              <ThemedText style={styles.petRarity}>{pet.rarity}</ThemedText>
+              <ThemedText style={[
+                styles.petName,
+                !isOwned && styles.unownedText
+              ]}>
+                {pet.name}
+                {!isOwned && ' (Not Owned)'}
+              </ThemedText>
+              <ThemedText style={[
+                styles.petRarity,
+                !isOwned && styles.unownedText
+              ]}>
+                {pet.rarity}
+              </ThemedText>
               {pet.type && PET_BONUSES[pet.type]?.activeBonus && (
-                <ThemedText style={styles.petBonus}>
-                  {PET_BONUSES[pet.type].activeBonus.description}
+                <ThemedText style={[
+                  styles.petBonus,
+                  !isOwned && styles.unownedText
+                ]}>
+                  {PET_BONUSES[pet.type]?.activeBonus?.description}
                 </ThemedText>
               )}
               {pet.type && PET_BONUSES[pet.type]?.passiveBonus && (
-                <ThemedText style={[styles.petBonus, styles.passiveBonus]}>
-                  + {PET_BONUSES[pet.type].passiveBonus.description}
+                <ThemedText style={[
+                  styles.petBonus, 
+                  styles.passiveBonus,
+                  !isOwned && styles.unownedText
+                ]}>
+                  + {PET_BONUSES[pet.type]?.passiveBonus?.description}
                 </ThemedText>
               )}
             </Pressable>
@@ -113,6 +136,11 @@ const styles = StyleSheet.create({
     borderColor: '#4CAF50',
     backgroundColor: 'rgba(76, 175, 80, 0.1)',
   },
+  unownedPet: {
+    opacity: 0.4,
+    backgroundColor: 'rgba(128, 128, 128, 0.1)',
+    borderColor: '#999',
+  },
   disabledPet: {
     opacity: 0.5,
   },
@@ -132,5 +160,9 @@ const styles = StyleSheet.create({
   },
   passiveBonus: {
     color: '#2196F3',
+  },
+  unownedText: {
+    color: '#666',
+    opacity: 0.7,
   },
 });

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Dimensions, Animated, PanResponder, Pressable, Alert, Platform as RNPlatform } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { useAbstraxionAccount } from "@burnt-labs/abstraxion-react-native";
+import { useAbstraxionAccount, useAbstraxionClient } from "@burnt-labs/abstraxion-react-native";
 import { PetSVG } from '@/components/PetSVG';
 import { GameVerificationService } from '@/services/gameVerification';
 import { XIONVerificationService } from '@/services/verification';
@@ -56,12 +56,15 @@ interface GameState {
 
 export default function PlayScreen() {
   const { data: account, isConnected } = useAbstraxionAccount();
+  const { client: queryClient } = useAbstraxionClient();
   
   // Web mock: Pretend user is connected
   const isWebMock = RNPlatform.OS === 'web';
   
   const [selectedPets, setSelectedPets] = useState<Pet[]>([]);
   const [activePet, setActivePet] = useState<Pet | null>(null);
+  const [userPetData, setUserPetData] = useState<any>(null);
+  const [availablePets, setAvailablePets] = useState<Pet[]>([]);
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
     highScore: 0,
@@ -82,14 +85,110 @@ export default function PlayScreen() {
   const gameVerification = useRef(new GameVerificationService()).current;
   const currentSession = useRef<GameSession | null>(null);
 
-  // Mock pets data - replace with your actual pets data
-  const availablePets: Pet[] = [
-    { id: '1', name: 'Whiskers', emoji: '🐱', basePrice: '100', description: 'A curious cat', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 60, agility: 80, intelligence: 70 }, rarity: PetRarity.RARE, type: 'cat' },
-    { id: '2', name: 'Buddy', emoji: '🐶', basePrice: '150', description: 'A loyal dog', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 80, agility: 60, intelligence: 60 }, rarity: PetRarity.EPIC, type: 'dog' },
-    { id: '3', name: 'Fluffy', emoji: '🐰', basePrice: '200', description: 'A fast rabbit', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 50, agility: 90, intelligence: 50 }, rarity: PetRarity.LEGENDARY, type: 'rabbit' },
-    { id: '4', name: 'Spike', emoji: '🐕', basePrice: '80', description: 'A brave dog', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 70, agility: 50, intelligence: 55 }, rarity: PetRarity.COMMON, type: 'dog' },
-    { id: '5', name: 'Luna', emoji: '🐈', basePrice: '120', description: 'A mysterious cat', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 55, agility: 75, intelligence: 80 }, rarity: PetRarity.EPIC, type: 'cat' },
-  ];
+  // Load user pet data and set up available pets with ownership
+  useEffect(() => {
+    const loadUserPetData = async () => {
+      // Web mock: Set mock pet data
+      if (isWebMock) {
+        const mockPetData = {
+          hasStarterPet: true,
+          starterPet: {
+            id: 'starter-cat',
+            name: 'Starter Cat',
+            type: 'cat',
+            rarity: 'common',
+            stats: {
+              happiness: 85,
+              energy: 90,
+              hunger: 75,
+              strength: 5,
+              agility: 6,
+              intelligence: 6,
+              lastFed: Date.now() - 3600000, // 1 hour ago
+              lastPlayed: Date.now() - 7200000, // 2 hours ago
+              lastUpdated: Date.now(),
+            },
+            claimedAt: new Date().toISOString(),
+          },
+          pets: ['starter-cat', '1', '3'], // User owns starter-cat, Whiskers, and Fluffy
+          houseData: null,
+          lastUpdated: new Date().toISOString(),
+        };
+        setUserPetData(mockPetData);
+        
+        // Set up available pets with ownership information
+        const allPets: Pet[] = [
+          { id: 'starter-cat', name: 'Starter Cat', emoji: '🐱', basePrice: '0', description: 'Your first pet', baseStats: { happiness: 85, energy: 90, hunger: 75, strength: 5, agility: 6, intelligence: 6 }, rarity: PetRarity.COMMON, type: 'cat', owned: true },
+          { id: '1', name: 'Whiskers', emoji: '🐱', basePrice: '100', description: 'A curious cat', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 60, agility: 80, intelligence: 70 }, rarity: PetRarity.RARE, type: 'cat', owned: true },
+          { id: '2', name: 'Buddy', emoji: '🐶', basePrice: '150', description: 'A loyal dog', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 80, agility: 60, intelligence: 60 }, rarity: PetRarity.EPIC, type: 'dog', owned: false },
+          { id: '3', name: 'Fluffy', emoji: '🐰', basePrice: '200', description: 'A fast rabbit', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 50, agility: 90, intelligence: 50 }, rarity: PetRarity.LEGENDARY, type: 'rabbit', owned: true },
+          { id: '4', name: 'Spike', emoji: '🐕', basePrice: '80', description: 'A brave dog', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 70, agility: 50, intelligence: 55 }, rarity: PetRarity.COMMON, type: 'dog', owned: false },
+          { id: '5', name: 'Luna', emoji: '🐈', basePrice: '120', description: 'A mysterious cat', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 55, agility: 75, intelligence: 80 }, rarity: PetRarity.EPIC, type: 'cat', owned: false },
+          { id: '6', name: 'Shadow', emoji: '🦊', basePrice: '180', description: 'A cunning fox', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 65, agility: 85, intelligence: 75 }, rarity: PetRarity.EPIC, type: 'fox', owned: false },
+          { id: '7', name: 'Bubbles', emoji: '🐠', basePrice: '90', description: 'A colorful fish', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 40, agility: 70, intelligence: 45 }, rarity: PetRarity.COMMON, type: 'fish', owned: false },
+          { id: '8', name: 'Hoot', emoji: '🦉', basePrice: '160', description: 'A wise owl', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 45, agility: 65, intelligence: 95 }, rarity: PetRarity.RARE, type: 'owl', owned: false },
+        ];
+        setAvailablePets(allPets);
+        return;
+      }
+
+      // Load real user data for mobile
+      if ((RNPlatform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account)?.bech32Address && queryClient) {
+        try {
+          const contractAddress = process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS;
+          if (!contractAddress) {
+            console.error('EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS not configured');
+            return;
+          }
+          
+          const response = await queryClient.queryContractSmart(
+            contractAddress,
+            { get_value_by_user: { address: (RNPlatform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account).bech32Address } }
+          );
+          
+          if (response && typeof response === 'string') {
+            try {
+              const userData = JSON.parse(response);
+              setUserPetData(userData);
+              
+              // Set up available pets with ownership information based on user data
+              const allPets: Pet[] = [
+                { id: 'starter-cat', name: 'Starter Cat', emoji: '🐱', basePrice: '0', description: 'Your first pet', baseStats: { happiness: 85, energy: 90, hunger: 75, strength: 5, agility: 6, intelligence: 6 }, rarity: PetRarity.COMMON, type: 'cat', owned: userData.pets?.includes('starter-cat') || false },
+                { id: '1', name: 'Whiskers', emoji: '🐱', basePrice: '100', description: 'A curious cat', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 60, agility: 80, intelligence: 70 }, rarity: PetRarity.RARE, type: 'cat', owned: userData.pets?.includes('1') || false },
+                { id: '2', name: 'Buddy', emoji: '🐶', basePrice: '150', description: 'A loyal dog', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 80, agility: 60, intelligence: 60 }, rarity: PetRarity.EPIC, type: 'dog', owned: userData.pets?.includes('2') || false },
+                { id: '3', name: 'Fluffy', emoji: '🐰', basePrice: '200', description: 'A fast rabbit', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 50, agility: 90, intelligence: 50 }, rarity: PetRarity.LEGENDARY, type: 'rabbit', owned: userData.pets?.includes('3') || false },
+                { id: '4', name: 'Spike', emoji: '🐕', basePrice: '80', description: 'A brave dog', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 70, agility: 50, intelligence: 55 }, rarity: PetRarity.COMMON, type: 'dog', owned: userData.pets?.includes('4') || false },
+                { id: '5', name: 'Luna', emoji: '🐈', basePrice: '120', description: 'A mysterious cat', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 55, agility: 75, intelligence: 80 }, rarity: PetRarity.EPIC, type: 'cat', owned: userData.pets?.includes('5') || false },
+                { id: '6', name: 'Shadow', emoji: '🦊', basePrice: '180', description: 'A cunning fox', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 65, agility: 85, intelligence: 75 }, rarity: PetRarity.EPIC, type: 'fox', owned: userData.pets?.includes('6') || false },
+                { id: '7', name: 'Bubbles', emoji: '🐠', basePrice: '90', description: 'A colorful fish', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 40, agility: 70, intelligence: 45 }, rarity: PetRarity.COMMON, type: 'fish', owned: userData.pets?.includes('7') || false },
+                { id: '8', name: 'Hoot', emoji: '🦉', basePrice: '160', description: 'A wise owl', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 45, agility: 65, intelligence: 95 }, rarity: PetRarity.RARE, type: 'owl', owned: userData.pets?.includes('8') || false },
+              ];
+              setAvailablePets(allPets);
+            } catch (parseError) {
+              console.error('Error parsing user data:', parseError);
+            }
+          }
+        } catch (error: any) {
+          console.error('Error loading user pet data:', error);
+          // Set default pets if loading fails
+          const defaultPets: Pet[] = [
+            { id: 'starter-cat', name: 'Starter Cat', emoji: '🐱', basePrice: '0', description: 'Your first pet', baseStats: { happiness: 85, energy: 90, hunger: 75, strength: 5, agility: 6, intelligence: 6 }, rarity: PetRarity.COMMON, type: 'cat', owned: false },
+            { id: '1', name: 'Whiskers', emoji: '🐱', basePrice: '100', description: 'A curious cat', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 60, agility: 80, intelligence: 70 }, rarity: PetRarity.RARE, type: 'cat', owned: false },
+            { id: '2', name: 'Buddy', emoji: '🐶', basePrice: '150', description: 'A loyal dog', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 80, agility: 60, intelligence: 60 }, rarity: PetRarity.EPIC, type: 'dog', owned: false },
+            { id: '3', name: 'Fluffy', emoji: '🐰', basePrice: '200', description: 'A fast rabbit', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 50, agility: 90, intelligence: 50 }, rarity: PetRarity.LEGENDARY, type: 'rabbit', owned: false },
+            { id: '4', name: 'Spike', emoji: '🐕', basePrice: '80', description: 'A brave dog', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 70, agility: 50, intelligence: 55 }, rarity: PetRarity.COMMON, type: 'dog', owned: false },
+            { id: '5', name: 'Luna', emoji: '🐈', basePrice: '120', description: 'A mysterious cat', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 55, agility: 75, intelligence: 80 }, rarity: PetRarity.EPIC, type: 'cat', owned: false },
+            { id: '6', name: 'Shadow', emoji: '🦊', basePrice: '180', description: 'A cunning fox', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 65, agility: 85, intelligence: 75 }, rarity: PetRarity.EPIC, type: 'fox', owned: false },
+            { id: '7', name: 'Bubbles', emoji: '🐠', basePrice: '90', description: 'A colorful fish', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 40, agility: 70, intelligence: 45 }, rarity: PetRarity.COMMON, type: 'fish', owned: false },
+            { id: '8', name: 'Hoot', emoji: '🦉', basePrice: '160', description: 'A wise owl', baseStats: { happiness: 50, energy: 50, hunger: 50, strength: 45, agility: 65, intelligence: 95 }, rarity: PetRarity.RARE, type: 'owl', owned: false },
+          ];
+          setAvailablePets(defaultPets);
+        }
+      }
+    };
+
+    loadUserPetData();
+  }, [account, queryClient, isWebMock]);
 
   // Game physics state
   const playerPos = useRef(new Animated.ValueXY({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 })).current;
@@ -153,7 +252,7 @@ export default function PlayScreen() {
                         onPanResponderMove: (_, gestureState) => {
            if (currentGameState.current.isPlaying) {
                                          // Use velocity for smooth movement
-               const moveSpeed = RNPlatform.OS === 'web' ? 2.0 : 8.0; // Much lower sensitivity for web, normal for mobile
+               const moveSpeed = RNPlatform.OS === 'web' ? 6.0 : 15.0; // Increased sensitivity for both web and mobile
              const deltaX = gestureState.vx * moveSpeed; // Use velocity for smooth movement
             
             const oldX = currentPlayerPos.current.x;

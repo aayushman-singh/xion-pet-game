@@ -70,5 +70,29 @@ export const PET_BONUSES: PetBonusConfig = {
       value: 2.0, // Double points
       description: "Clever scoring"
     }
+  },
+  fish: {
+    activeBonus: {
+      type: BonusType.FALL_SPEED,
+      value: 0.6, // 40% slower falling
+      description: "Swimming through air"
+    },
+    passiveBonus: {
+      type: BonusType.PLATFORM_WIDTH,
+      value: 1.1, // 10% wider platforms
+      description: "Water-like movement"
+    }
+  },
+  owl: {
+    activeBonus: {
+      type: BonusType.JUMP_HEIGHT,
+      value: 1.8, // 80% higher jumps
+      description: "Wise soaring"
+    },
+    passiveBonus: {
+      type: BonusType.SCORE_MULTIPLIER,
+      value: 1.3, // 30% more points
+      description: "Intelligent play"
+    }
   }
 };
