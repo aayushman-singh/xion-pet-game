@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   },
   petItem: {
     width: PET_ITEM_WIDTH - 20,
-    height: 140,
+    height: 250, // Increased from 140 for taller cards
     marginHorizontal: 5,
     padding: 10,
     borderRadius: 8,

@@ -25,14 +25,7 @@ const PLAYER_HITBOX_WIDTH = 30; // Actual collision width (narrower than visual)
 const PLAYER_HITBOX_HEIGHT = 20; // Actual collision height (just the feet area)
 const PLAYER_FEET_OFFSET = 20; // Offset from bottom of sprite to feet center (increased to move hitbox up)
 
-// Debug logging utility - simplified to reduce memory allocations
-const DEBUG_LOG = (category: string, message: string, data?: any) => {
-  // Only log in development and limit frequency to prevent memory issues
-  if (__DEV__) {
-    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-    console.log(`[${timestamp}] [${category}] ${message}`, data || '');
-  }
-};
+
 
 interface Platform {
   x: number;
@@ -71,7 +64,7 @@ export default function PlayScreen() {
     isPlaying: false,
     gameOver: false,
   });
-  const [isOnPlatform, setIsOnPlatform] = useState(false);
+
   
   // Use a ref to track the current game state for the game loop
   const currentGameState = useRef<GameState>({
@@ -101,10 +94,10 @@ export default function PlayScreen() {
   const currentPlayerPos = useRef({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 });
   const verificationService = new XIONVerificationService();
   
-  // Frame rate limiting to prevent memory issues
-  const lastFrameTime = useRef(0);
-  const TARGET_FPS = 60;
-  const FRAME_INTERVAL = 1000 / TARGET_FPS;
+     // Frame rate optimization for better performance
+   const lastFrameTime = useRef(0);
+   const TARGET_FPS = 120; // Increased from 60 for smoother gameplay
+   const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
      // Initialize platforms
    const initializePlatforms = () => {
@@ -148,11 +141,11 @@ export default function PlayScreen() {
            gestureStartX.current = currentPlayerPos.current.x;
          }
        },
-               onPanResponderMove: (_, gestureState) => {
-          if (currentGameState.current.isPlaying) {
-            // Use velocity for smooth movement
-            const moveSpeed = 8.0; // Increased from 2.0 for more responsive movement
-            const deltaX = gestureState.vx * moveSpeed; // Use velocity for smooth movement
+                        onPanResponderMove: (_, gestureState) => {
+           if (currentGameState.current.isPlaying) {
+             // Use velocity for smooth movement
+             const moveSpeed = 15.0; // Increased from 8.0 for higher drag sensitivity
+             const deltaX = gestureState.vx * moveSpeed; // Use velocity for smooth movement
             
             const oldX = currentPlayerPos.current.x;
             const newX = oldX + deltaX;
@@ -160,14 +153,14 @@ export default function PlayScreen() {
             // Keep player within screen bounds using feet hitbox
             const clampedX = Math.max(PLAYER_HITBOX_WIDTH / 2, Math.min(SCREEN_WIDTH - PLAYER_HITBOX_WIDTH / 2, newX));
             
-            // Always update position if there's movement
-            if (Math.abs(deltaX) > 0.1) { // Small threshold to avoid jitter
-              currentPlayerPos.current.x = clampedX;
-              playerPos.setValue({
-                x: clampedX,
-                y: currentPlayerPos.current.y,
-              });
-            }
+                         // Always update position if there's movement
+             if (Math.abs(deltaX) > 0.05) { // Reduced threshold for more responsive movement
+               currentPlayerPos.current.x = clampedX;
+               playerPos.setValue({
+                 x: clampedX,
+                 y: currentPlayerPos.current.y,
+               });
+             }
           }
         },
        onPanResponderRelease: () => {
@@ -179,22 +172,22 @@ export default function PlayScreen() {
      })
    ).current;
 
-  // Game loop with frame rate limiting
-  const gameLoop = () => {
-    if (!currentGameState.current.isPlaying) {
-      return;
-    }
+     // Optimized game loop with improved performance
+   const gameLoop = () => {
+     if (!currentGameState.current.isPlaying) {
+       return;
+     }
 
-    const currentTime = Date.now();
-    const deltaTime = currentTime - lastFrameTime.current;
-    
-    // Frame rate limiting to prevent excessive memory usage
-    if (deltaTime < FRAME_INTERVAL) {
-      animationFrame.current = requestAnimationFrame(gameLoop);
-      return;
-    }
-    
-    lastFrameTime.current = currentTime;
+     const currentTime = Date.now();
+     const deltaTime = currentTime - lastFrameTime.current;
+     
+     // Optimized frame rate limiting
+     if (deltaTime < FRAME_INTERVAL) {
+       animationFrame.current = requestAnimationFrame(gameLoop);
+       return;
+     }
+     
+     lastFrameTime.current = currentTime;
 
     // Apply gravity
     velocity.current.y += GRAVITY;
@@ -243,8 +236,7 @@ export default function PlayScreen() {
 
     
 
-         // Update platform state for debugging
-     setIsOnPlatform(onPlatform);
+         
 
     // No constant jumping - sprite only jumps when hitting platforms
 
@@ -392,7 +384,7 @@ export default function PlayScreen() {
        animationFrame.current = null;
      }
      
-     const finalScore = gameState.score;
+     const finalScore = currentGameState.current.score; // Use current game state instead of React state
      const oldHighScore = gameState.highScore;
      const newHighScore = Math.max(oldHighScore, finalScore);
      
@@ -454,22 +446,6 @@ export default function PlayScreen() {
     >
       <ThemedText style={styles.score}>Score: {gameState.score}</ThemedText>
       <ThemedText style={styles.highScore}>High Score: {gameState.highScore}</ThemedText>
-             {gameState.isPlaying && (
-         <View style={styles.debugContainer}>
-           <ThemedText style={styles.debugInfo}>
-             Platform: {isOnPlatform ? 'Yes' : 'No'} | Vel: {Math.round(velocity.current.y)}
-           </ThemedText>
-           <ThemedText style={styles.debugInfo}>
-             Pos: ({Math.round(currentPlayerPos.current.x)}, {Math.round(currentPlayerPos.current.y)})
-           </ThemedText>
-           <ThemedText style={styles.debugInfo}>
-             Platforms: {platforms.current.length} | Score: {gameState.score}
-           </ThemedText>
-           <ThemedText style={styles.debugInfo}>
-             Height: {Math.floor((SCREEN_HEIGHT - currentPlayerPos.current.y) / 10)} | Raw Y: {Math.round(currentPlayerPos.current.y)}
-           </ThemedText>
-         </View>
-       )}
 
       <Animated.View
         style={[styles.player, playerPos.getLayout()]}
@@ -498,21 +474,6 @@ export default function PlayScreen() {
                },
              ]}
            />
-           
-           {/* Debug platform hitbox (green) - only show when game is playing */}
-           {gameState.isPlaying && (
-             <View
-               style={[
-                 styles.debugPlatformHitbox,
-                 {
-                   left: platform.x,
-                   top: platform.y,
-                   width: platform.width,
-                   height: platform.height,
-                 },
-               ]}
-             />
-           )}
          </View>
        ))}
 
@@ -587,19 +548,6 @@ export default function PlayScreen() {
           </ThemedText>
         </View>
       )}
-      
-                 {/* Debug hitbox overlay - only show when game is playing */}
-           {gameState.isPlaying && (
-             <View style={[
-               styles.debugHitbox,
-               {
-                 left: currentPlayerPos.current.x - PLAYER_HITBOX_WIDTH / 2 + 30, // Move right by 2px
-                 top: currentPlayerPos.current.y + PLAYER_SIZE - PLAYER_FEET_OFFSET - PLAYER_HITBOX_HEIGHT / 2 + 5, // Move up by 5px
-                 width: PLAYER_HITBOX_WIDTH,
-                 height: PLAYER_HITBOX_HEIGHT,
-               }
-             ]} />
-           )}
     </ThemedView>
   );
 }
@@ -715,18 +663,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  debugContainer: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 1,
-  },
-  debugInfo: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
-    fontFamily: 'monospace',
-  },
+
   instructions: {
     fontSize: 16,
     textAlign: 'center',
@@ -757,20 +694,5 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-     debugHitbox: {
-     position: 'absolute',
-     backgroundColor: 'rgba(255, 0, 0, 0.3)',
-     borderWidth: 2,
-     borderColor: 'rgba(255, 0, 0, 0.8)',
-     borderRadius: 2,
-     zIndex: 10,
-   },
-   debugPlatformHitbox: {
-     position: 'absolute',
-     backgroundColor: 'rgba(0, 255, 0, 0.2)',
-     borderWidth: 1,
-     borderColor: 'rgba(0, 255, 0, 0.8)',
-     borderRadius: 1,
-     zIndex: 9,
-   },
+
 });

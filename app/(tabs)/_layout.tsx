@@ -46,7 +46,7 @@ export default function TabLayout() {
         name="pet"
         options={{
           title: 'My Pet',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="heart.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="pawprint.fill" color={color} />,
         }}
       />
       <Tabs.Screen

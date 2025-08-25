@@ -13,6 +13,17 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'heart.fill': 'favorite',
+  'gamecontroller.fill': 'sports-esports',
+  'plus.circle.fill': 'add-circle',
+  'pawprint.fill': 'pets',
+  'trophy.fill': 'emoji-events',
+  'person.fill': 'person',
+  'gear.fill': 'settings',
+  'star.fill': 'star',
+  'crown.fill': 'workspace-premium',
+  'gift.fill': 'card-giftcard',
+  'shop.fill': 'store',
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],

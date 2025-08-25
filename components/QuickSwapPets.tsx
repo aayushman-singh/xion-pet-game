@@ -5,6 +5,7 @@ import { PetSVG } from './PetSVG';
 import type { Pet as PetType } from '../types/pet';
 
 const QUICK_SWAP_WIDTH = 70;
+const QUICK_SWAP_HEIGHT = 90; // Increased height for better visibility
 
 interface QuickSwapPetsProps {
   pets: PetType[];
@@ -34,7 +35,7 @@ export function QuickSwapPets({
         >
           <PetSVG
             type={pet.type}
-            size={40}
+            size={50}
             isAnimating={false}
             rarity={pet.rarity}
           />
@@ -58,8 +59,8 @@ const styles = StyleSheet.create({
   },
   petButton: {
     width: QUICK_SWAP_WIDTH,
-    height: QUICK_SWAP_WIDTH,
-    borderRadius: QUICK_SWAP_WIDTH / 2,
+    height: QUICK_SWAP_HEIGHT,
+    borderRadius: QUICK_SWAP_HEIGHT / 2,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -74,9 +75,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -5,
     top: -5,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#2196F3',
     justifyContent: 'center',
     alignItems: 'center',

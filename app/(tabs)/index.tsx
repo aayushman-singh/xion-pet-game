@@ -33,7 +33,17 @@ export default function HomeScreen() {
   const [isClaimingPet, setIsClaimingPet] = useState(false);
   const [isCheckingPet, setIsCheckingPet] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isWalletInitializing, setIsWalletInitializing] = useState(true);
   const hasCheckedRef = useRef(false);
+
+  // Handle wallet initialization delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsWalletInitializing(false);
+    }, 1000); // Give wallet 1 second to initialize
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Check if user has a starter pet from on-chain storage
   useEffect(() => {
@@ -42,7 +52,9 @@ export default function HomeScreen() {
       hasCheckedRef.current = false; // Reset to allow checking when connected
     } else if (!isConnected) {
       hasCheckedRef.current = false;
-      setIsInitialized(false); // Reset initialization when disconnected
+      // Reset initialization state when disconnected
+      setIsInitialized(false);
+      setHasStarterPet(false);
     }
 
     // Only proceed if we have the necessary dependencies and haven't checked yet
@@ -178,8 +190,20 @@ export default function HomeScreen() {
     isInitialized,
     isConnected,
     hasStarterPet,
-    isCheckingPet
+    isCheckingPet,
+    isWalletInitializing
   });
+
+  // Show loading screen while wallet is initializing
+  if (isWalletInitializing) {
+    console.log('🔄 Showing loading screen while wallet initializes');
+    return (
+      <ThemedView style={styles.container}>
+        <LoadingSpinner />
+        <ThemedText style={styles.loadingText}>Initializing wallet...</ThemedText>
+      </ThemedView>
+    );
+  }
 
   // Show loading screen while checking pet status after connection
   if (isConnected && !isInitialized) {
