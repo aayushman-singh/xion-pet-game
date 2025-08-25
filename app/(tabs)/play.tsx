@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import * as React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Dimensions, Animated, PanResponder, Pressable, Alert } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -19,16 +20,17 @@ const GRAVITY = 0.8; // Normal gravity for natural falling
 const JUMP_FORCE = -18; // Strong jump when hitting platforms
 const PLATFORM_HEIGHT = 15;
 const PLATFORM_WIDTH = 60;
-const PLAYER_SIZE = 50;
+const PLAYER_SIZE = 50; // Visual container size
+const PLAYER_HITBOX_WIDTH = 30; // Actual collision width (narrower than visual)
+const PLAYER_HITBOX_HEIGHT = 20; // Actual collision height (just the feet area)
+const PLAYER_FEET_OFFSET = 20; // Offset from bottom of sprite to feet center (increased to move hitbox up)
 
-// Debug logging utility
+// Debug logging utility - simplified to reduce memory allocations
 const DEBUG_LOG = (category: string, message: string, data?: any) => {
-  const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-  const logMessage = `[${timestamp}] [${category}] ${message}`;
-  if (data) {
-    console.log(logMessage, data);
-  } else {
-    console.log(logMessage);
+  // Only log in development and limit frequency to prevent memory issues
+  if (__DEV__) {
+    const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+    console.log(`[${timestamp}] [${category}] ${message}`, data || '');
   }
 };
 
@@ -71,6 +73,14 @@ export default function PlayScreen() {
   });
   const [isOnPlatform, setIsOnPlatform] = useState(false);
   
+  // Use a ref to track the current game state for the game loop
+  const currentGameState = useRef<GameState>({
+    score: 0,
+    highScore: 0,
+    isPlaying: false,
+    gameOver: false,
+  });
+  
   const gameVerification = useRef(new GameVerificationService()).current;
   const currentSession = useRef<GameSession | null>(null);
 
@@ -90,323 +100,196 @@ export default function PlayScreen() {
   const animationFrame = useRef<number | null>(null);
   const currentPlayerPos = useRef({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 });
   const verificationService = new XIONVerificationService();
+  
+  // Frame rate limiting to prevent memory issues
+  const lastFrameTime = useRef(0);
+  const TARGET_FPS = 60;
+  const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
-  // Initialize platforms
-  const initializePlatforms = () => {
-    DEBUG_LOG('INIT', 'Initializing platforms');
-    
-    platforms.current = [];
-    // Add initial platform under player
-    const initialPlatform = {
-      x: SCREEN_WIDTH / 2 - PLATFORM_WIDTH / 2,
-      y: SCREEN_HEIGHT - 50,
-      width: PLATFORM_WIDTH,
-      height: PLATFORM_HEIGHT,
-    };
-    platforms.current.push(initialPlatform);
-    
-    DEBUG_LOG('INIT', 'Initial platform created', {
-      position: { x: initialPlatform.x, y: initialPlatform.y },
-      size: { width: initialPlatform.width, height: initialPlatform.height }
-    });
+     // Initialize platforms
+   const initializePlatforms = () => {
+     platforms.current = [];
+     // Add initial platform under player
+     const initialPlatform = {
+       x: SCREEN_WIDTH / 2 - PLATFORM_WIDTH / 2,
+       y: SCREEN_HEIGHT - 100, // Adjust to match new starting height
+       width: PLATFORM_WIDTH,
+       height: PLATFORM_HEIGHT,
+     };
+     platforms.current.push(initialPlatform);
 
-    // Add platforms with optimal spacing for platform-based jumping
-    for (let i = 0; i < 20; i++) {
-      const platform = {
-        x: Math.random() * (SCREEN_WIDTH - PLATFORM_WIDTH),
-        y: SCREEN_HEIGHT - 120 - i * 70, // Optimal spacing for platform jumping
-        width: PLATFORM_WIDTH,
-        height: PLATFORM_HEIGHT,
-      };
-      platforms.current.push(platform);
-      
-      DEBUG_LOG('INIT', `Platform ${i + 1} created`, {
-        position: { x: platform.x, y: platform.y },
-        index: i + 1
-      });
+     // Add platforms with optimal spacing for platform-based jumping
+     for (let i = 0; i < 20; i++) {
+       const platform = {
+         x: Math.random() * (SCREEN_WIDTH - PLATFORM_WIDTH),
+         y: SCREEN_HEIGHT - 120 - i * 70, // Optimal spacing for platform jumping
+         width: PLATFORM_WIDTH,
+         height: PLATFORM_HEIGHT,
+       };
+       platforms.current.push(platform);
+     }
+   };
+
+  // Track gesture start position for proper movement calculation
+  const gestureStartX = useRef(0);
+
+     // Pan responder for player movement - now works anywhere on screen
+   const panResponder = useRef(
+     PanResponder.create({
+       onStartShouldSetPanResponder: () => {
+         return currentGameState.current.isPlaying; // Only respond when game is playing
+       },
+       onMoveShouldSetPanResponder: () => {
+         return currentGameState.current.isPlaying;
+       },
+       onPanResponderGrant: (_, gestureState) => {
+         if (currentGameState.current.isPlaying) {
+           // Store the starting X position of the sprite when gesture begins
+           gestureStartX.current = currentPlayerPos.current.x;
+         }
+       },
+               onPanResponderMove: (_, gestureState) => {
+          if (currentGameState.current.isPlaying) {
+            // Use velocity for smooth movement
+            const moveSpeed = 8.0; // Increased from 2.0 for more responsive movement
+            const deltaX = gestureState.vx * moveSpeed; // Use velocity for smooth movement
+            
+            const oldX = currentPlayerPos.current.x;
+            const newX = oldX + deltaX;
+            
+            // Keep player within screen bounds using feet hitbox
+            const clampedX = Math.max(PLAYER_HITBOX_WIDTH / 2, Math.min(SCREEN_WIDTH - PLAYER_HITBOX_WIDTH / 2, newX));
+            
+            // Always update position if there's movement
+            if (Math.abs(deltaX) > 0.1) { // Small threshold to avoid jitter
+              currentPlayerPos.current.x = clampedX;
+              playerPos.setValue({
+                x: clampedX,
+                y: currentPlayerPos.current.y,
+              });
+            }
+          }
+        },
+       onPanResponderRelease: () => {
+         // Gesture released - no action needed
+       },
+       onPanResponderTerminate: () => {
+         // Gesture terminated - no action needed
+       },
+     })
+   ).current;
+
+  // Game loop with frame rate limiting
+  const gameLoop = () => {
+    if (!currentGameState.current.isPlaying) {
+      return;
+    }
+
+    const currentTime = Date.now();
+    const deltaTime = currentTime - lastFrameTime.current;
+    
+    // Frame rate limiting to prevent excessive memory usage
+    if (deltaTime < FRAME_INTERVAL) {
+      animationFrame.current = requestAnimationFrame(gameLoop);
+      return;
     }
     
-    DEBUG_LOG('INIT', 'Platform initialization complete', {
-      totalPlatforms: platforms.current.length,
-      screenDimensions: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT }
-    });
-  };
-
-  // Pan responder for player movement - now works anywhere on screen
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => {
-        DEBUG_LOG('PAN', 'onStartShouldSetPanResponder called');
-        return true;
-      },
-      onMoveShouldSetPanResponder: () => {
-        DEBUG_LOG('PAN', 'onMoveShouldSetPanResponder called');
-        return true;
-      },
-      onPanResponderGrant: (_, gestureState) => {
-        DEBUG_LOG('PAN', 'onPanResponderGrant called', {
-          startX: gestureState.x0,
-          startY: gestureState.y0,
-          currentPos: { ...currentPlayerPos.current }
-        });
-        if (gameState.isPlaying) {
-          DEBUG_LOG('INPUT', 'Pan gesture started', {
-            startX: gestureState.x0,
-            startY: gestureState.y0,
-            currentPos: { ...currentPlayerPos.current }
-          });
-        }
-      },
-      onPanResponderMove: (_, gestureState) => {
-        DEBUG_LOG('PAN', 'onPanResponderMove called', {
-          dx: gestureState.dx,
-          dy: gestureState.dy,
-          vx: gestureState.vx,
-          vy: gestureState.vy
-        });
-        
-        if (gameState.isPlaying) {
-          // Debug: Log user input
-          DEBUG_LOG('INPUT', 'Pan gesture detected', {
-            dx: gestureState.dx,
-            dy: gestureState.dy,
-            vx: gestureState.vx,
-            vy: gestureState.vy,
-            currentPos: { ...currentPlayerPos.current }
-          });
-
-          // Use delta-based movement for more responsive control
-          const moveSpeed = 2.0; // Responsive movement speed
-          const newX = currentPlayerPos.current.x + (gestureState.dx * moveSpeed);
-          
-          // Keep player within screen bounds
-          const clampedX = Math.max(PLAYER_SIZE / 2, Math.min(SCREEN_WIDTH - PLAYER_SIZE / 2, newX));
-          
-          // Debug: Log movement calculation
-          DEBUG_LOG('MOVEMENT', 'Player movement calculated', {
-            oldX: currentPlayerPos.current.x,
-            newX: newX,
-            clampedX: clampedX,
-            moveSpeed: moveSpeed,
-            gestureDx: gestureState.dx
-          });
-          
-          currentPlayerPos.current.x = clampedX;
-          playerPos.setValue({
-            x: clampedX,
-            y: currentPlayerPos.current.y,
-          });
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        DEBUG_LOG('PAN', 'onPanResponderRelease called', {
-          finalDx: gestureState.dx,
-          finalDy: gestureState.dy
-        });
-        
-        if (gameState.isPlaying) {
-          DEBUG_LOG('INPUT', 'Pan gesture released', {
-            finalDx: gestureState.dx,
-            finalDy: gestureState.dy,
-            finalPos: { ...currentPlayerPos.current }
-          });
-        }
-      },
-      onPanResponderTerminate: () => {
-        DEBUG_LOG('PAN', 'onPanResponderTerminate called');
-      },
-    })
-  ).current;
-
-  // Game loop
-  const gameLoop = () => {
-    if (!gameState.isPlaying) return;
-
-    // Debug: Log frame start
-    DEBUG_LOG('PHYSICS', 'Game loop frame start', {
-      currentPos: { ...currentPlayerPos.current },
-      currentVelocity: { ...velocity.current },
-      platformCount: platforms.current.length
-    });
+    lastFrameTime.current = currentTime;
 
     // Apply gravity
-    const oldVelocityY = velocity.current.y;
     velocity.current.y += GRAVITY;
-    
-    // Debug: Log gravity application
-    DEBUG_LOG('PHYSICS', 'Gravity applied', {
-      oldVelocityY: oldVelocityY,
-      newVelocityY: velocity.current.y,
-      gravity: GRAVITY
-    });
 
     // Update player position
     let newX = currentPlayerPos.current.x;
     let newY = currentPlayerPos.current.y + velocity.current.y;
 
-    // Screen wrapping for x-axis
-    if (newX < 0) {
-      DEBUG_LOG('BOUNDS', 'Player wrapped left to right', { oldX: newX, newX: SCREEN_WIDTH });
-      newX = SCREEN_WIDTH;
-    }
-    if (newX > SCREEN_WIDTH) {
-      DEBUG_LOG('BOUNDS', 'Player wrapped right to left', { oldX: newX, newX: 0 });
-      newX = 0;
-    }
+         // Screen wrapping for x-axis - use feet hitbox for more accurate bounds
+     const feetLeft = (newX + 30) - PLAYER_HITBOX_WIDTH / 2; // Match the collision detection offset
+     const feetRight = (newX + 30) + PLAYER_HITBOX_WIDTH / 2;
+     
+     if (feetLeft < 0) {
+       newX = SCREEN_WIDTH - PLAYER_HITBOX_WIDTH / 2 - 30; // Adjust for offset
+     }
+     if (feetRight > SCREEN_WIDTH) {
+       newX = PLAYER_HITBOX_WIDTH / 2 - 30; // Adjust for offset
+     }
 
-    // Check platform collisions
-    let onPlatform = false;
-    let collisionDetails: any[] = [];
+         // Check platform collisions
+     let onPlatform = false;
+     
+           platforms.current.forEach((platform, index) => {
+       // Calculate precise hitbox for feet collision - match the visual debug box
+       const feetCenterX = newX + 30; // Add the same offset as the visual debug box
+       const feetCenterY = newY + PLAYER_SIZE - PLAYER_FEET_OFFSET;
+       const feetLeft = feetCenterX - PLAYER_HITBOX_WIDTH / 2;
+       const feetRight = feetCenterX + PLAYER_HITBOX_WIDTH / 2;
+       const feetTop = feetCenterY - PLAYER_HITBOX_HEIGHT / 2;
+       const feetBottom = feetCenterY + PLAYER_HITBOX_HEIGHT / 2;
+      
+             // Check if feet hitbox intersects with platform
+       if (
+         feetBottom > platform.y &&
+         feetTop < platform.y + platform.height &&
+         feetRight > platform.x &&
+         feetLeft < platform.x + platform.width &&
+         velocity.current.y > 0
+       ) {
+         // Position sprite so feet are exactly on platform
+         newY = platform.y - PLAYER_SIZE + PLAYER_FEET_OFFSET;
+         velocity.current.y = JUMP_FORCE; // Boost jump when hitting platform
+         onPlatform = true;
+       }
+    });
+
     
-    platforms.current.forEach((platform, index) => {
-      const collisionCheck = {
-        platformIndex: index,
-        platformPos: { x: platform.x, y: platform.y },
-        playerPos: { x: newX, y: newY },
-        playerBottom: newY + PLAYER_SIZE,
-        platformTop: platform.y,
-        platformBottom: platform.y + platform.height,
-        playerLeft: newX - PLAYER_SIZE / 2,
-        playerRight: newX + PLAYER_SIZE / 2,
-        platformLeft: platform.x,
-        platformRight: platform.x + platform.width,
-        velocityY: velocity.current.y,
-        wouldCollide: false
-      };
 
-      if (
-        newY + PLAYER_SIZE > platform.y &&
-        newY + PLAYER_SIZE < platform.y + platform.height &&
-        newX > platform.x - PLAYER_SIZE / 2 &&
-        newX < platform.x + platform.width + PLAYER_SIZE / 2 &&
-        velocity.current.y > 0
-      ) {
-        collisionCheck.wouldCollide = true;
-        collisionDetails.push(collisionCheck);
-        
-        const oldY = newY;
-        newY = platform.y - PLAYER_SIZE;
-        const oldVelocityY = velocity.current.y;
-        velocity.current.y = JUMP_FORCE; // Boost jump when hitting platform
-        onPlatform = true;
-        
-        // Debug: Log platform collision
-        DEBUG_LOG('COLLISION', 'Platform collision detected', {
-          platformIndex: index,
-          platformPos: { x: platform.x, y: platform.y },
-          oldPlayerY: oldY,
-          newPlayerY: newY,
-          oldVelocityY: oldVelocityY,
-          newVelocityY: velocity.current.y,
-          jumpForce: JUMP_FORCE
-        });
-      }
-    });
-
-    // Debug: Log collision summary if any occurred
-    if (collisionDetails.length > 0) {
-      DEBUG_LOG('COLLISION', 'Collision summary', {
-        totalCollisions: collisionDetails.length,
-        collisions: collisionDetails
-      });
-    }
-
-    // Update platform state for debugging
-    setIsOnPlatform(onPlatform);
-
-    // Debug: Log platform state
-    DEBUG_LOG('PLATFORM', 'Platform contact state updated', {
-      onPlatform: onPlatform,
-      playerY: newY,
-      velocityY: velocity.current.y
-    });
+         // Update platform state for debugging
+     setIsOnPlatform(onPlatform);
 
     // No constant jumping - sprite only jumps when hitting platforms
 
-    // Update score and verify height reached
-    const currentHeight = Math.floor((SCREEN_HEIGHT - newY) / 10);
-    if (currentHeight > gameState.score) {
-      const oldScore = gameState.score;
-      setGameState(prev => ({ ...prev, score: currentHeight }));
-      gameVerification.updateMaxHeight(currentHeight);
-      
-      // Debug: Log score update
-      DEBUG_LOG('SCORE', 'Score increased', {
-        oldScore: oldScore,
-        newScore: currentHeight,
-        playerY: newY,
-        screenHeight: SCREEN_HEIGHT
-      });
-    }
+         // Update score and verify height reached
+     const currentHeight = Math.floor((SCREEN_HEIGHT - newY) / 10);
+     if (currentHeight > currentGameState.current.score) {
+       const updatedState = { ...currentGameState.current, score: currentHeight };
+       setGameState(updatedState);
+       currentGameState.current = updatedState;
+       gameVerification.updateMaxHeight(currentHeight);
+     }
 
-    // Game over condition
-    if (newY > SCREEN_HEIGHT) {
-      DEBUG_LOG('GAME_OVER', 'Player fell below screen', {
-        playerY: newY,
-        screenHeight: SCREEN_HEIGHT,
-        finalScore: currentHeight
-      });
-      endGame();
-      return;
-    }
+         // Game over condition - check if sprite has fallen below the screen
+     if (newY > SCREEN_HEIGHT + PLAYER_SIZE) {
+       endGame();
+       return;
+     }
 
-    // Camera follow (move platforms down)
-    if (newY < SCREEN_HEIGHT / 2) {
-      const diff = SCREEN_HEIGHT / 2 - newY;
-      const oldY = newY;
-      newY = SCREEN_HEIGHT / 2;
-      
-      // Debug: Log camera movement
-      DEBUG_LOG('CAMERA', 'Camera following player', {
-        oldPlayerY: oldY,
-        newPlayerY: newY,
-        cameraDiff: diff,
-        screenHalf: SCREEN_HEIGHT / 2
-      });
-      
-      const oldPlatforms = [...platforms.current];
-      platforms.current = platforms.current.map(platform => ({
-        ...platform,
-        y: platform.y + diff,
-      }));
+         // Camera follow (move platforms down)
+     if (newY < SCREEN_HEIGHT / 2) {
+       const diff = SCREEN_HEIGHT / 2 - newY;
+       newY = SCREEN_HEIGHT / 2;
+       
+       platforms.current = platforms.current.map(platform => ({
+         ...platform,
+         y: platform.y + diff,
+       }));
 
-      // Remove platforms that are off screen and add new ones
-      const removedCount = platforms.current.length;
-      platforms.current = platforms.current.filter(p => p.y < SCREEN_HEIGHT);
-      const remainingCount = platforms.current.length;
-      
-      // Debug: Log platform cleanup
-      DEBUG_LOG('PLATFORM', 'Platforms cleaned up', {
-        removedCount: removedCount - remainingCount,
-        remainingCount: remainingCount
-      });
-      
-      while (platforms.current.length < 20) {
-        const newPlatform = {
-          x: Math.random() * (SCREEN_WIDTH - PLATFORM_WIDTH),
-          y: platforms.current[platforms.current.length - 1].y - 70, // Optimal spacing for platform jumping
-          width: PLATFORM_WIDTH,
-          height: PLATFORM_HEIGHT,
-        };
-        platforms.current.push(newPlatform);
-        
-        // Debug: Log new platform creation
-        DEBUG_LOG('PLATFORM', 'New platform created', {
-          position: { x: newPlatform.x, y: newPlatform.y },
-          platformIndex: platforms.current.length - 1
-        });
-      }
-    }
+       // Remove platforms that are off screen and add new ones
+       platforms.current = platforms.current.filter(p => p.y < SCREEN_HEIGHT);
+       
+       while (platforms.current.length < 20) {
+         const newPlatform = {
+           x: Math.random() * (SCREEN_WIDTH - PLATFORM_WIDTH),
+           y: platforms.current[platforms.current.length - 1].y - 70, // Optimal spacing for platform jumping
+           width: PLATFORM_WIDTH,
+           height: PLATFORM_HEIGHT,
+         };
+         platforms.current.push(newPlatform);
+       }
+     }
 
-    // Debug: Log final position update
-    DEBUG_LOG('POSITION', 'Player position updated', {
-      oldPos: { ...currentPlayerPos.current },
-      newPos: { x: newX, y: newY },
-      velocity: { ...velocity.current }
-    });
-
-    currentPlayerPos.current = { x: newX, y: newY };
-    playerPos.setValue({ x: newX, y: newY });
+         currentPlayerPos.current = { x: newX, y: newY };
+     playerPos.setValue({ x: newX, y: newY });
+    
     animationFrame.current = requestAnimationFrame(gameLoop);
   };
 
@@ -424,176 +307,134 @@ export default function PlayScreen() {
     }
   };
 
-  const handlePetSwap = async (pet: Pet) => {
-    if (gameState.isPlaying) {
-      DEBUG_LOG('PET_SWAP', 'Pet swap initiated', {
-        fromPet: activePet?.name,
-        toPet: pet.name,
-        currentPosition: { ...currentPlayerPos.current },
-        currentHeight: Math.floor((SCREEN_HEIGHT - currentPlayerPos.current.y) / 10)
-      });
-      
-      try {
-        const currentHeight = Math.floor((SCREEN_HEIGHT - currentPlayerPos.current.y) / 10);
-        const swapAction = await gameVerification.swapActivePet(pet.id, currentHeight);
-        DEBUG_LOG('PET_SWAP', 'Pet swap verified successfully', {
-          swapAction: swapAction,
-          newActivePet: pet.name,
-          currentHeight: currentHeight
-        });
-        setActivePet(pet);
-        // Here we'll add pet-specific bonuses later
-      } catch (error) {
-        DEBUG_LOG('ERROR', 'Failed to verify pet swap', { 
-          error: error instanceof Error ? error.message : String(error),
-          attemptedPet: pet.name
-        });
-        console.error('Failed to verify pet swap:', error);
-      }
-    }
-  };
+     const handlePetSwap = async (pet: Pet) => {
+     if (gameState.isPlaying) {
+       try {
+         const currentHeight = Math.floor((SCREEN_HEIGHT - currentPlayerPos.current.y) / 10);
+         await gameVerification.swapActivePet(pet.id, currentHeight);
+         setActivePet(pet);
+         // Here we'll add pet-specific bonuses later
+       } catch (error) {
+         console.error('Failed to verify pet swap:', error);
+       }
+     }
+   };
 
-  const startGame = async () => {
-    if (!activePet || selectedPets.length === 0) return;
-    
-    DEBUG_LOG('GAME', 'Starting game', {
-      activePet: activePet?.name,
-      selectedPetsCount: selectedPets.length,
-      selectedPets: selectedPets.map(p => ({ id: p.id, name: p.name }))
-    });
-    
-    try {
-      // Start new game session with zkTLS verification
-      const session = await gameVerification.startGameSession(selectedPets);
-      currentSession.current = session;
-      DEBUG_LOG('GAME', 'Game session started successfully', {
-        sessionId: session.sessionId,
-        startTime: session.startTime,
-        selectedPets: session.selectedPets
-      });
+     const startGame = async () => {
+     if (!activePet || selectedPets.length === 0) return;
+     
+     try {
+       // Start new game session with zkTLS verification
+       const session = await gameVerification.startGameSession(selectedPets);
+       currentSession.current = session;
 
-      initializePlatforms();
-      setGameState({
-        score: 0,
-        highScore: gameState.highScore,
-        isPlaying: true,
-        gameOver: false,
-      });
-      
-      // Start with no initial velocity - sprite will fall immediately due to gravity
-      const initialVelocity = { x: 0, y: 0 };
-      const initialPosition = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 100 };
-      
-      velocity.current = initialVelocity;
-      currentPlayerPos.current = initialPosition;
-      playerPos.setValue(initialPosition);
-      
-      DEBUG_LOG('GAME', 'Game state initialized', {
-        initialPosition: initialPosition,
-        initialVelocity: initialVelocity,
-        gameState: { score: 0, isPlaying: true, gameOver: false }
-      });
-      
-      animationFrame.current = requestAnimationFrame(gameLoop);
-      DEBUG_LOG('GAME', 'Game loop started');
-    } catch (error) {
-      DEBUG_LOG('ERROR', 'Failed to start game session', { error: error instanceof Error ? error.message : String(error) });
-      console.error('Failed to start game session:', error);
-      // Handle session start failure
-      Alert.alert(
-        'Error',
-        'Failed to start game session. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
+       initializePlatforms();
+       const newGameState = {
+         score: 0,
+         highScore: gameState.highScore,
+         isPlaying: true,
+         gameOver: false,
+       };
+       setGameState(newGameState);
+       currentGameState.current = newGameState;
+       
+       // Start with small downward velocity to ensure immediate falling
+       const initialVelocity = { x: 0, y: 1 }; // Start with slight downward velocity
+       const initialPosition = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 150 }; // Start higher
+       
+       velocity.current = initialVelocity;
+       currentPlayerPos.current = initialPosition;
+       playerPos.setValue(initialPosition);
+       
+       animationFrame.current = requestAnimationFrame(gameLoop);
+     } catch (error) {
+       console.error('Failed to start game session:', error);
+       // Handle session start failure
+       Alert.alert(
+         'Error',
+         'Failed to start game session. Please try again.',
+         [{ text: 'OK' }]
+       );
+     }
+   };
 
-  const endGame = async () => {
-    DEBUG_LOG('GAME', 'Ending game', {
-      finalScore: gameState.score,
-      currentPosition: { ...currentPlayerPos.current },
-      currentVelocity: { ...velocity.current },
-      platformCount: platforms.current.length
-    });
-    
-    if (animationFrame.current) {
-      cancelAnimationFrame(animationFrame.current);
-      DEBUG_LOG('GAME', 'Game loop cancelled');
-    }
-    
-    const finalScore = gameState.score;
-    const oldHighScore = gameState.highScore;
-    const newHighScore = Math.max(oldHighScore, finalScore);
-    
-    setGameState(prev => ({
-      ...prev,
-      isPlaying: false,
-      gameOver: true,
-      highScore: newHighScore,
-    }));
+     const resetGame = () => {
+     if (animationFrame.current) {
+       cancelAnimationFrame(animationFrame.current);
+       animationFrame.current = null;
+     }
+     
+     // Reset all game state
+     const resetState = {
+       score: 0,
+       highScore: gameState.highScore,
+       isPlaying: false,
+       gameOver: false,
+     };
+     setGameState(resetState);
+     currentGameState.current = resetState;
+     
+     // Reset physics state
+     velocity.current = { x: 0, y: 0 };
+     currentPlayerPos.current = { x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 150 };
+     playerPos.setValue({ x: SCREEN_WIDTH / 2, y: SCREEN_HEIGHT - 150 });
+     
+     // Clear platforms
+     platforms.current = [];
+     
+     // Reset session
+     currentSession.current = null;
+   };
 
-    DEBUG_LOG('GAME', 'Game state updated', {
-      finalScore: finalScore,
-      oldHighScore: oldHighScore,
-      newHighScore: newHighScore,
-      isNewRecord: newHighScore > oldHighScore
-    });
+     const endGame = async () => {
+     if (animationFrame.current) {
+       cancelAnimationFrame(animationFrame.current);
+       animationFrame.current = null;
+     }
+     
+     const finalScore = gameState.score;
+     const oldHighScore = gameState.highScore;
+     const newHighScore = Math.max(oldHighScore, finalScore);
+     
+     const endState = {
+       score: finalScore,
+       isPlaying: false,
+       gameOver: true,
+       highScore: newHighScore,
+     };
+     setGameState(endState);
+     currentGameState.current = endState;
 
-    // Verify and record the score
-    if (account?.bech32Address && currentSession.current) {
-      try {
-        // End game session with verification
-        const finalSession = await gameVerification.endGameSession(finalScore);
-        DEBUG_LOG('GAME', 'Game session ended successfully', {
-          sessionId: finalSession.sessionId,
-          endTime: finalSession.endTime,
-          finalScore: finalSession.finalScore
-        });
+     // Verify and record the score
+     if (account?.bech32Address && currentSession.current) {
+       try {
+         // End game session with verification
+         await gameVerification.endGameSession(finalScore);
 
-        // Verify final score
-        const verifiedScore = await gameVerification.verifyGameScore(finalScore, finalSession);
-        DEBUG_LOG('GAME', 'Score verification completed', {
-          originalScore: finalScore,
-          verifiedScore: verifiedScore
-        });
+         // Verify final score
+         await gameVerification.verifyGameScore(finalScore, currentSession.current);
 
-        // Reset session
-        currentSession.current = null;
-        DEBUG_LOG('GAME', 'Session reset completed');
+         // Reset session
+         currentSession.current = null;
 
-      } catch (error) {
-        DEBUG_LOG('ERROR', 'Failed to verify game session', { 
-          error: error instanceof Error ? error.message : String(error),
-          finalScore: finalScore,
-          sessionId: currentSession.current?.sessionId
-        });
-        console.error('Failed to verify game session:', error);
-        Alert.alert(
-          'Warning',
-          'Failed to verify game session. Your score might not be recorded.',
-          [{ text: 'OK' }]
-        );
-      }
-    } else {
-      DEBUG_LOG('GAME', 'Game ended without verification', {
-        hasAccount: !!account?.bech32Address,
-        hasSession: !!currentSession.current,
-        finalScore: finalScore
-      });
-    }
-  };
+       } catch (error) {
+         console.error('Failed to verify game session:', error);
+         Alert.alert(
+           'Warning',
+           'Failed to verify game session. Your score might not be recorded.',
+           [{ text: 'OK' }]
+         );
+       }
+     }
+   };
 
-  useEffect(() => {
-    DEBUG_LOG('LIFECYCLE', 'PlayScreen mounted');
-    
-    return () => {
-      DEBUG_LOG('LIFECYCLE', 'PlayScreen unmounting');
-      if (animationFrame.current) {
-        cancelAnimationFrame(animationFrame.current);
-        DEBUG_LOG('LIFECYCLE', 'Animation frame cancelled on unmount');
-      }
-    };
-  }, []);
+     useEffect(() => {
+     return () => {
+       if (animationFrame.current) {
+         cancelAnimationFrame(animationFrame.current);
+       }
+     };
+   }, []);
 
   if (!isConnected) {
     return (
@@ -613,19 +454,22 @@ export default function PlayScreen() {
     >
       <ThemedText style={styles.score}>Score: {gameState.score}</ThemedText>
       <ThemedText style={styles.highScore}>High Score: {gameState.highScore}</ThemedText>
-      {gameState.isPlaying && (
-        <View style={styles.debugContainer}>
-          <ThemedText style={styles.debugInfo}>
-            Platform: {isOnPlatform ? 'Yes' : 'No'} | Vel: {Math.round(velocity.current.y)}
-          </ThemedText>
-          <ThemedText style={styles.debugInfo}>
-            Pos: ({Math.round(currentPlayerPos.current.x)}, {Math.round(currentPlayerPos.current.y)})
-          </ThemedText>
-          <ThemedText style={styles.debugInfo}>
-            Platforms: {platforms.current.length} | Score: {gameState.score}
-          </ThemedText>
-        </View>
-      )}
+             {gameState.isPlaying && (
+         <View style={styles.debugContainer}>
+           <ThemedText style={styles.debugInfo}>
+             Platform: {isOnPlatform ? 'Yes' : 'No'} | Vel: {Math.round(velocity.current.y)}
+           </ThemedText>
+           <ThemedText style={styles.debugInfo}>
+             Pos: ({Math.round(currentPlayerPos.current.x)}, {Math.round(currentPlayerPos.current.y)})
+           </ThemedText>
+           <ThemedText style={styles.debugInfo}>
+             Platforms: {platforms.current.length} | Score: {gameState.score}
+           </ThemedText>
+           <ThemedText style={styles.debugInfo}>
+             Height: {Math.floor((SCREEN_HEIGHT - currentPlayerPos.current.y) / 10)} | Raw Y: {Math.round(currentPlayerPos.current.y)}
+           </ThemedText>
+         </View>
+       )}
 
       <Animated.View
         style={[styles.player, playerPos.getLayout()]}
@@ -640,20 +484,37 @@ export default function PlayScreen() {
         )}
       </Animated.View>
 
-      {platforms.current.map((platform, index) => (
-        <View
-          key={index}
-          style={[
-            styles.platform,
-            {
-              left: platform.x,
-              top: platform.y,
-              width: platform.width,
-              height: platform.height,
-            },
-          ]}
-        />
-      ))}
+             {platforms.current.map((platform, index) => (
+         <View key={`platform-${index}`}>
+           {/* Actual platform (blue) */}
+           <View
+             style={[
+               styles.platform,
+               {
+                 left: platform.x,
+                 top: platform.y,
+                 width: platform.width,
+                 height: platform.height,
+               },
+             ]}
+           />
+           
+           {/* Debug platform hitbox (green) - only show when game is playing */}
+           {gameState.isPlaying && (
+             <View
+               style={[
+                 styles.debugPlatformHitbox,
+                 {
+                   left: platform.x,
+                   top: platform.y,
+                   width: platform.width,
+                   height: platform.height,
+                 },
+               ]}
+             />
+           )}
+         </View>
+       ))}
 
       {/* Quick swap UI */}
       {activePet && (
@@ -668,34 +529,53 @@ export default function PlayScreen() {
       {!gameState.isPlaying && (
         <View style={styles.menuContainer}>
           {gameState.gameOver && (
-            <ThemedText style={styles.gameOver}>Game Over!</ThemedText>
+            <View>
+              <ThemedText style={styles.gameOver}>Game Over!</ThemedText>
+              <ThemedText style={styles.finalScore}>Final Score: {gameState.score}</ThemedText>
+              {gameState.score === gameState.highScore && gameState.score > 0 && (
+                <ThemedText style={styles.newRecord}>🎉 New High Score! 🎉</ThemedText>
+              )}
+              
+              <Pressable
+                style={[styles.replayButton]}
+                onPress={resetGame}
+              >
+                <ThemedText style={styles.replayButtonText}>
+                  🔄 Play Again
+                </ThemedText>
+              </Pressable>
+            </View>
           )}
           
-          <ThemedText style={styles.instructions}>
-            🎮 Drag anywhere on screen to move left/right{'\n'}
-            🦘 Your pet jumps when landing on platforms!
-          </ThemedText>
-          
-          <PetSelector
-            pets={availablePets}
-            selectedPets={selectedPets}
-            onSelectPet={handlePetSelection}
-            maxSelections={3}
-          />
+          {!gameState.gameOver && (
+            <View>
+              <ThemedText style={styles.instructions}>
+                🎮 Drag anywhere on screen to move left/right{'\n'}
+                🦘 Your pet jumps when landing on platforms!
+              </ThemedText>
+              
+              <PetSelector
+                pets={availablePets}
+                selectedPets={selectedPets}
+                onSelectPet={handlePetSelection}
+                maxSelections={3}
+              />
 
-          <Pressable
-            style={[styles.startButton, !activePet && styles.buttonDisabled]}
-            onPress={startGame}
-            disabled={!activePet}
-          >
-            <ThemedText style={styles.startButtonText}>
-              {selectedPets.length === 0 
-                ? 'Select Pets to Play' 
-                : !activePet 
-                  ? 'Select Active Pet' 
-                  : 'Start Game'}
-            </ThemedText>
-          </Pressable>
+              <Pressable
+                style={[styles.startButton, !activePet && styles.buttonDisabled]}
+                onPress={startGame}
+                disabled={!activePet}
+              >
+                <ThemedText style={styles.startButtonText}>
+                  {selectedPets.length === 0 
+                    ? 'Select Pets to Play' 
+                    : !activePet 
+                      ? 'Select Active Pet' 
+                      : 'Start Game'}
+                </ThemedText>
+              </Pressable>
+            </View>
+          )}
         </View>
       )}
 
@@ -707,6 +587,19 @@ export default function PlayScreen() {
           </ThemedText>
         </View>
       )}
+      
+                 {/* Debug hitbox overlay - only show when game is playing */}
+           {gameState.isPlaying && (
+             <View style={[
+               styles.debugHitbox,
+               {
+                 left: currentPlayerPos.current.x - PLAYER_HITBOX_WIDTH / 2 + 30, // Move right by 2px
+                 top: currentPlayerPos.current.y + PLAYER_SIZE - PLAYER_FEET_OFFSET - PLAYER_HITBOX_HEIGHT / 2 + 5, // Move up by 5px
+                 width: PLAYER_HITBOX_WIDTH,
+                 height: PLAYER_HITBOX_HEIGHT,
+               }
+             ]} />
+           )}
     </ThemedView>
   );
 }
@@ -779,8 +672,33 @@ const styles = StyleSheet.create({
   gameOver: {
     fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 10,
     color: '#ff4444',
+  },
+  finalScore: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  newRecord: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#ff9500',
+    textAlign: 'center',
+  },
+  replayButton: {
+    backgroundColor: '#ff9500',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  replayButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   startButton: {
     backgroundColor: '#4CAF50',
@@ -839,4 +757,20 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
+     debugHitbox: {
+     position: 'absolute',
+     backgroundColor: 'rgba(255, 0, 0, 0.3)',
+     borderWidth: 2,
+     borderColor: 'rgba(255, 0, 0, 0.8)',
+     borderRadius: 2,
+     zIndex: 10,
+   },
+   debugPlatformHitbox: {
+     position: 'absolute',
+     backgroundColor: 'rgba(0, 255, 0, 0.2)',
+     borderWidth: 1,
+     borderColor: 'rgba(0, 255, 0, 0.8)',
+     borderRadius: 1,
+     zIndex: 9,
+   },
 });
