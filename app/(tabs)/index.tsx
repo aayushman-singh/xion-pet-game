@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Pressable, Image, Alert } from 'react-native';
+import { StyleSheet, Pressable, Image, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAbstraxionAccount, useAbstraxionSigningClient, useAbstraxionClient } from "@burnt-labs/abstraxion-react-native";
 import { ThemedView } from '@/components/ThemedView';
@@ -36,17 +36,33 @@ export default function HomeScreen() {
   const [isWalletInitializing, setIsWalletInitializing] = useState(true);
   const hasCheckedRef = useRef(false);
 
-  // Handle wallet initialization delay
+  // Web mock: Pretend user is connected and has a pet
+  const isWebMock = Platform.OS === 'web';
+  const mockIsConnected = isWebMock ? true : isConnected;
+  const mockHasStarterPet = isWebMock ? true : hasStarterPet;
+  const mockIsInitialized = isWebMock ? true : isInitialized;
+
+  // Handle wallet initialization delay (only on mobile)
   useEffect(() => {
+    if (isWebMock) {
+      setIsWalletInitializing(false);
+      return;
+    }
+    
     const timer = setTimeout(() => {
       setIsWalletInitializing(false);
     }, 1000); // Give wallet 1 second to initialize
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [isWebMock]);
 
-  // Check if user has a starter pet from on-chain storage
+  // Check if user has a starter pet from on-chain storage (only on mobile)
   useEffect(() => {
+    // Skip all wallet logic on web
+    if (isWebMock) {
+      return;
+    }
+
     // Reset the ref when connection state changes
     if (isConnected && !hasCheckedRef.current) {
       hasCheckedRef.current = false; // Reset to allow checking when connected
@@ -125,7 +141,7 @@ export default function HomeScreen() {
     };
 
     checkStarterPet();
-  }, [account?.bech32Address, queryClient, isConnected]);
+  }, [account?.bech32Address, queryClient, isConnected, isWebMock]);
 
   const handleClaimStarterPet = async () => {
     if (!account?.bech32Address || !signingClient) {
@@ -187,15 +203,15 @@ export default function HomeScreen() {
 
   // Show loading spinner until both wallet connectivity and pet status are confirmed
   console.log('🎯 Render decision:', {
-    isInitialized,
-    isConnected,
-    hasStarterPet,
+    isInitialized: mockIsInitialized,
+    isConnected: mockIsConnected,
+    hasStarterPet: mockHasStarterPet,
     isCheckingPet,
     isWalletInitializing
   });
 
-  // Show loading screen while wallet is initializing
-  if (isWalletInitializing) {
+  // Show loading screen while wallet is initializing (only on mobile)
+  if (!isWebMock && isWalletInitializing) {
     console.log('🔄 Showing loading screen while wallet initializes');
     return (
       <ThemedView style={styles.container}>
@@ -206,7 +222,7 @@ export default function HomeScreen() {
   }
 
   // Show loading screen while checking pet status after connection
-  if (isConnected && !isInitialized) {
+  if (mockIsConnected && !mockIsInitialized) {
     console.log('🔄 Showing loading screen while checking pet status');
     return (
       <ThemedView style={styles.container}>
@@ -217,7 +233,7 @@ export default function HomeScreen() {
   }
 
   // Show connect wallet screen when not connected
-  if (!isConnected) {
+  if (!mockIsConnected) {
     console.log('🔌 Showing connect wallet screen');
     return (
       <ThemedView style={styles.container}>
@@ -244,16 +260,24 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Pressable 
-        style={styles.logoutButtonTop}
-        onPress={logout}
-      >
-        <ThemedText style={styles.logoutButtonText}>Disconnect</ThemedText>
-      </Pressable>
+      {!isWebMock && (
+        <Pressable 
+          style={styles.logoutButtonTop}
+          onPress={logout}
+        >
+          <ThemedText style={styles.logoutButtonText}>Disconnect</ThemedText>
+        </Pressable>
+      )}
+      
+      {isWebMock && (
+        <ThemedText style={styles.description}>
+          🌐 Web Demo Mode - Connected with Mock Wallet
+        </ThemedText>
+      )}
       
       <ThemedText style={styles.title}>Welcome to XION Pet Game!</ThemedText>
       
-      {!hasStarterPet ? (
+      {!mockHasStarterPet ? (
         <>
           <ThemedText style={styles.description}>
             Claim your starter pet to begin your adventure!

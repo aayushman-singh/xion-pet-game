@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Pressable } from 'react-native';
+import { ScrollView, StyleSheet, Pressable, Platform } from 'react-native';
 import { PetMinter } from '@/components/PetMinter';
 import { useAbstraxionAccount } from "@burnt-labs/abstraxion-react-native";
 import { ThemedView } from '@/components/ThemedView';
@@ -8,12 +8,17 @@ import { ThemedText } from '@/components/ThemedText';
 export default function NFTScreen() {
   const { data: account, login, isConnected } = useAbstraxionAccount();
 
+  // Web mock: Pretend user is connected
+  const isWebMock = Platform.OS === 'web';
+  const mockIsConnected = isWebMock ? true : isConnected;
+  const mockAccount = isWebMock ? { bech32Address: 'web-demo-address' } : account;
+
   const handlePetMinted = (petData: any) => {
     // TODO: Update pet collection in state/chain
     console.log('Pet minted:', petData);
   };
 
-  if (!isConnected) {
+  if (!mockIsConnected) {
     return (
       <ThemedView style={styles.container}>
         <ThemedText style={styles.title}>Connect Wallet</ThemedText>

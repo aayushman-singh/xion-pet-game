@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Dimensions, Animated, PanResponder, Pressable, Alert } from 'react-native';
+import { StyleSheet, View, Dimensions, Animated, PanResponder, Pressable, Alert, Platform as RNPlatform } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAbstraxionAccount } from "@burnt-labs/abstraxion-react-native";
@@ -56,6 +56,12 @@ interface GameState {
 
 export default function PlayScreen() {
   const { data: account, isConnected } = useAbstraxionAccount();
+  
+  // Web mock: Pretend user is connected
+  const isWebMock = RNPlatform.OS === 'web';
+  const mockIsConnected = isWebMock ? true : isConnected;
+  const mockAccount = isWebMock ? { bech32Address: 'web-demo-address' } : account;
+  
   const [selectedPets, setSelectedPets] = useState<Pet[]>([]);
   const [activePet, setActivePet] = useState<Pet | null>(null);
   const [gameState, setGameState] = useState<GameState>({
@@ -384,7 +390,7 @@ export default function PlayScreen() {
        animationFrame.current = null;
      }
      
-     const finalScore = currentGameState.current.score; // Use current game state instead of React state
+    const finalScore = currentGameState.current.score; // Use current game state instead of React state
      const oldHighScore = gameState.highScore;
      const newHighScore = Math.max(oldHighScore, finalScore);
      
@@ -397,8 +403,8 @@ export default function PlayScreen() {
      setGameState(endState);
      currentGameState.current = endState;
 
-     // Verify and record the score
-     if (account?.bech32Address && currentSession.current) {
+           // Verify and record the score
+      if (mockAccount?.bech32Address && currentSession.current) {
        try {
          // End game session with verification
          await gameVerification.endGameSession(finalScore);
@@ -428,16 +434,16 @@ export default function PlayScreen() {
      };
    }, []);
 
-  if (!isConnected) {
-    return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.title}>Pet Jump Game</ThemedText>
-        <ThemedText style={styles.description}>
-          Please connect your wallet to play with your pets
-        </ThemedText>
-      </ThemedView>
-    );
-  }
+     if (!mockIsConnected) {
+     return (
+       <ThemedView style={styles.container}>
+         <ThemedText style={styles.title}>Pet Jump Game</ThemedText>
+         <ThemedText style={styles.description}>
+           Please connect your wallet to play with your pets
+         </ThemedText>
+       </ThemedView>
+     );
+   }
 
   return (
     <ThemedView 

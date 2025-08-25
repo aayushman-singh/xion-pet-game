@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, Alert, View, Pressable, Modal, Image } from 'react-native';
+import { ScrollView, StyleSheet, Alert, View, Pressable, Modal, Image, Platform } from 'react-native';
 import { Pet } from '@/components/Pet';
 import { PetHouse } from '@/components/PetHouse';
 import { Decoration } from '@/components/Decoration';
@@ -12,6 +12,11 @@ export default function PetScreen() {
   const { data: account, isConnected } = useAbstraxionAccount();
   const { client: queryClient } = useAbstraxionClient();
   const { client: signingClient } = useAbstraxionSigningClient();
+  
+  // Web mock: Pretend user is connected and has a pet
+  const isWebMock = Platform.OS === 'web';
+  const mockIsConnected = isWebMock ? true : isConnected;
+  const mockAccount = isWebMock ? { bech32Address: 'web-demo-address' } : account;
   
   const [petState, setPetState] = useState({
     happiness: 100,
@@ -37,7 +42,48 @@ export default function PetScreen() {
   // Load user pet data from on-chain storage
   useEffect(() => {
     const loadUserPetData = async () => {
-      if (account?.bech32Address && queryClient) {
+      // Web mock: Set mock pet data
+      if (isWebMock) {
+        const mockPetData = {
+          hasStarterPet: true,
+          starterPet: {
+            id: 'starter-cat',
+            name: 'Starter Cat',
+            type: 'cat',
+            rarity: 'common',
+            stats: {
+              happiness: 85,
+              energy: 90,
+              hunger: 75,
+              strength: 5,
+              agility: 6,
+              intelligence: 6,
+              lastFed: Date.now() - 3600000, // 1 hour ago
+              lastPlayed: Date.now() - 7200000, // 2 hours ago
+              lastUpdated: Date.now(),
+            },
+            claimedAt: new Date().toISOString(),
+          },
+          pets: ['starter-cat'],
+          houseData: null,
+          lastUpdated: new Date().toISOString(),
+        };
+        setUserPetData(mockPetData);
+        setPetState({
+          happiness: mockPetData.starterPet.stats.happiness,
+          energy: mockPetData.starterPet.stats.energy,
+          lastFed: mockPetData.starterPet.stats.lastFed,
+          lastPlayed: mockPetData.starterPet.stats.lastPlayed,
+          lastUpdated: mockPetData.starterPet.stats.lastUpdated,
+          timestamp: Date.now(),
+          signature: '',
+          proof: null,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (mockAccount?.bech32Address && queryClient) {
         try {
           const contractAddress = process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS;
           if (!contractAddress) {
@@ -47,7 +93,7 @@ export default function PetScreen() {
           
           const response = await queryClient.queryContractSmart(
             contractAddress,
-            { get_value_by_user: { address: account.bech32Address } }
+            { get_value_by_user: { address: mockAccount.bech32Address } }
           );
           
           if (response && typeof response === 'string') {
@@ -93,7 +139,14 @@ export default function PetScreen() {
   // Load user balance
   useEffect(() => {
     const loadBalance = async () => {
-      if (!account?.bech32Address || !queryClient) {
+      // Web mock: Set mock balance
+      if (isWebMock) {
+        setUserBalance('1000');
+        setIsLoadingBalance(false);
+        return;
+      }
+
+      if (!mockAccount?.bech32Address || !queryClient) {
         setUserBalance('0');
         setIsLoadingBalance(false);
         return;
@@ -102,7 +155,7 @@ export default function PetScreen() {
       setIsLoadingBalance(true);
       try {
         // Query user's XION balance
-        const balance = await queryClient.getBalance(account.bech32Address, 'uxion');
+        const balance = await queryClient.getBalance(mockAccount.bech32Address, 'uxion');
         if (balance && balance.amount) {
           setUserBalance(balance.amount);
         } else {
@@ -333,7 +386,7 @@ export default function PetScreen() {
       const msg = {
         mint: {
           token_id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          owner: account.bech32Address,
+          owner: mockAccount.bech32Address,
           token_uri: JSON.stringify(nftData),
           extension: {
             name: nftData.name,
@@ -348,7 +401,7 @@ export default function PetScreen() {
       const uxionAmount = Math.floor(requiredAmount * 1000000);
       
       const result = await signingClient.execute(
-        account.bech32Address,
+        mockAccount.bech32Address,
         contractAddress,
         msg,
         'auto',
@@ -516,7 +569,7 @@ export default function PetScreen() {
     }
   };
 
-  if (!isConnected) {
+  if (!mockIsConnected) {
     return (
       <ScrollView style={styles.container}>
         <ThemedText style={styles.noPetText}>
@@ -558,7 +611,10 @@ export default function PetScreen() {
         <ThemedText style={styles.marketplaceIconText}>🛒</ThemedText>
       </Pressable>
 
-      <ScrollView style={styles.scrollContainer}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContentContainer}
+      >
         {/* Pet House with draggable pet */}
         <PetHouse items={getHouseItems()} onItemMove={handleItemMove} scene="inside" />
         
@@ -724,9 +780,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
   },
   scrollContainer: {
     flex: 1,
+    width: '100%',
+  },
+  scrollContentContainer: {
+    alignItems: 'center',
   },
   loadingText: {
     fontSize: 18,
@@ -738,18 +800,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 50,
     opacity: 0.7,
+    color: '#333333',
+    paddingHorizontal: 20,
   },
   petUISection: {
     margin: 20,
     padding: 20,
     borderRadius: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#ffffff',
+    width: '90%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
+    color: '#333333',
   },
   // Marketplace Icon
   marketplaceIcon: {
