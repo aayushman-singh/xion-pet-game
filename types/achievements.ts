@@ -1,27 +1,4 @@
-import { ZkTLSProof, PetCareActivity, GameScore, VerifiableData } from './zkTLS';
-
-// Re-export the types that are used by other modules
-export type { ZkTLSProof, PetCareActivity, GameScore, VerifiableData };
-
-// Game session interface
-export interface GameSession extends VerifiableData {
-  sessionId: string;
-  startTime: number;
-  endTime: number;
-  selectedPets: string[];
-  petSwaps: PetSwapAction[];
-  maxHeight: number;
-  finalScore: number;
-}
-
-// Pet swap action interface
-export interface PetSwapAction extends VerifiableData {
-  petId: string;
-  timestamp: number;
-  previousPetId: string;
-  swapHeight: number;
-  height?: number; // Alternative property name for compatibility
-}
+import { ZkTLSProof, PetCareActivity, GameScore } from './zkTLS';
 
 export enum AchievementCategory {
   PET_CARE = 'PET_CARE',
@@ -61,7 +38,6 @@ export interface Achievement {
   id: string;
   title: string;
   description: string;
-  type: string; // Achievement type
   category: AchievementCategory;
   requirements: AchievementRequirement[];
   reward?: {
@@ -106,7 +82,6 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: 'happy_pet_master',
     title: 'Happy Pet Master',
     description: 'Maintain 90% happiness for 24 hours',
-    type: 'happiness_threshold',
     category: AchievementCategory.PET_CARE,
     requirements: [{
       trigger: AchievementTrigger.HAPPINESS_THRESHOLD,
@@ -118,7 +93,6 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: 'care_streak_champion',
     title: 'Care Streak Champion',
     description: 'Maintain a care streak for 7 days',
-    type: 'care_streak',
     category: AchievementCategory.PET_CARE,
     requirements: [{
       trigger: AchievementTrigger.CARE_STREAK,
@@ -131,7 +105,6 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: 'height_master',
     title: 'Height Master',
     description: 'Reach a height of 1000 in a single game',
-    type: 'height_reached',
     category: AchievementCategory.GAME_SCORE,
     requirements: [{
       trigger: AchievementTrigger.HEIGHT_REACHED,
@@ -142,7 +115,6 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: 'swap_master',
     title: 'Swap Master',
     description: 'Perform 10 pet swaps in a single game',
-    type: 'pet_swaps',
     category: AchievementCategory.GAME_SCORE,
     requirements: [{
       trigger: AchievementTrigger.PET_SWAPS,
@@ -155,7 +127,6 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: 'pet_collector',
     title: 'Pet Collector',
     description: 'Own 5 different pets',
-    type: 'pets_owned',
     category: AchievementCategory.COLLECTION,
     requirements: [{
       trigger: AchievementTrigger.PETS_OWNED,
@@ -168,7 +139,6 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: 'perfect_harmony',
     title: 'Perfect Harmony',
     description: 'Achieve 90% happiness and 1000+ game score',
-    type: 'combined_score',
     category: AchievementCategory.SPECIAL,
     requirements: [
       {

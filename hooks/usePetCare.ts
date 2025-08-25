@@ -1,17 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PetCareService } from '../services/petCare';
 import type { PetStatus, CareAction } from '../types/pet';
-import { DEFAULT_TIMER_CONFIG, type PetCareTimerConfig } from '../types/petCareTimers';
 
-export function usePetCare(initialStatus?: PetStatus | null, config?: PetCareTimerConfig) {
+export function usePetCare(initialStatus?: PetStatus | null) {
   const [status, setStatus] = useState<PetStatus | null>(initialStatus || null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedCooldown, setFeedCooldown] = useState(0);
   const [playCooldown, setPlayCooldown] = useState(0);
 
-  const timerConfig = config || DEFAULT_TIMER_CONFIG;
-  const petCareService = new PetCareService(timerConfig);
+  const petCareService = new PetCareService();
 
   // Update cooldowns
   const updateCooldowns = useCallback(async () => {
@@ -52,16 +50,16 @@ export function usePetCare(initialStatus?: PetStatus | null, config?: PetCareTim
     }
   };
 
-  // Set up periodic status updates using the config's degradation interval
+  // Set up periodic status updates
   useEffect(() => {
-    const statusInterval = setInterval(updateStatus, timerConfig.degradationInterval);
+    const statusInterval = setInterval(updateStatus, 60000); // Check every minute
     const cooldownInterval = setInterval(updateCooldowns, 1000); // Update cooldowns every second
 
     return () => {
       clearInterval(statusInterval);
       clearInterval(cooldownInterval);
     };
-  }, [updateStatus, updateCooldowns, timerConfig.degradationInterval]);
+  }, [updateStatus, updateCooldowns]);
 
   return {
     status,
