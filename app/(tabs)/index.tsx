@@ -141,7 +141,12 @@ export default function HomeScreen() {
   }, [account?.bech32Address, queryClient, isConnected]);
 
   const handleClaimStarterPet = async () => {
+    console.log('🏠 [HOME TAB] Starting to claim starter pet...');
+    console.log('🏠 [HOME TAB] account:', account);
+    console.log('🏠 [HOME TAB] signingClient:', signingClient);
+    
     if (!account?.bech32Address || !signingClient) {
+      console.log('🏠 [HOME TAB] ❌ Wallet not connected');
       Alert.alert('Error', 'Please connect your wallet first');
       return;
     }
@@ -165,12 +170,18 @@ export default function HomeScreen() {
         lastUpdated: new Date().toISOString(),
       };
 
+      console.log('🏠 [HOME TAB] Created user data:', userData);
+      
       // Store user data on-chain using the user map contract
       const msg = {
-        update: {
+        set_value: {
+          key: "",
           value: JSON.stringify(userData)
         }
       };
+      
+      console.log('🏠 [HOME TAB] Contract message:', msg);
+      console.log('🏠 [HOME TAB] Contract address:', process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS);
 
       const result = await signingClient.execute(
         account.bech32Address,
@@ -178,6 +189,8 @@ export default function HomeScreen() {
         msg,
         'auto'
       );
+      
+      console.log('🏠 [HOME TAB] ✅ Transaction result:', result);
 
       if (result) {
         setHasStarterPet(true);

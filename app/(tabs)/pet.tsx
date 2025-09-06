@@ -40,8 +40,15 @@ export default function PetScreen() {
   // Load user pet data from on-chain storage
   useEffect(() => {
     const loadUserPetData = async () => {
+      console.log('🐾 [PET TAB] Starting to load user pet data...');
+      console.log('🐾 [PET TAB] isWebMock:', isWebMock);
+      console.log('🐾 [PET TAB] isConnected:', isConnected);
+      console.log('🐾 [PET TAB] account:', account);
+      console.log('🐾 [PET TAB] queryClient:', queryClient);
+      
       // Web mock: Set mock pet data
       if (isWebMock) {
+        console.log('🐾 [PET TAB] Using web mock data');
         const mockPetData = {
           hasStarterPet: true,
           starterPet: {
@@ -66,6 +73,7 @@ export default function PetScreen() {
           houseData: null,
           lastUpdated: new Date().toISOString(),
         };
+        console.log('🐾 [PET TAB] Mock pet data set:', mockPetData);
         setUserPetData(mockPetData);
         setPetState({
           happiness: mockPetData.starterPet.stats.happiness,
@@ -84,19 +92,27 @@ export default function PetScreen() {
       if ((Platform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account)?.bech32Address && queryClient) {
         try {
           const contractAddress = process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS;
+          console.log('🐾 [PET TAB] Contract address from env:', contractAddress);
           if (!contractAddress) {
-            console.error('EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS not configured');
+            console.error('🐾 [PET TAB] ❌ EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS not configured');
             return;
           }
           
+          const userAddress = (Platform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account).bech32Address;
+          console.log('🐾 [PET TAB] Querying contract for user:', userAddress);
+          console.log('🐾 [PET TAB] Query message:', { get_value_by_user: { address: userAddress } });
+          
           const response = await queryClient.queryContractSmart(
             contractAddress,
-            { get_value_by_user: { address: (Platform.OS === 'web' ? { bech32Address: 'web-demo-address' } : account).bech32Address } }
+            { get_value_by_user: { address: userAddress } }
           );
+          
+          console.log('🐾 [PET TAB] Contract response:', response);
           
           if (response && typeof response === 'string') {
             try {
               const userData = JSON.parse(response);
+              console.log('🐾 [PET TAB] ✅ Parsed user data:', userData);
               setUserPetData(userData);
               
               // Update pet state with stored data
@@ -117,13 +133,15 @@ export default function PetScreen() {
             }
           }
         } catch (error: any) {
+          console.log('🐾 [PET TAB] ⚠️ Contract query error:', error);
           if (error?.message && error.message.includes("No value found")) {
+            console.log('🐾 [PET TAB] No pet data found for user');
             Alert.alert(
               'No Pet Found', 
               'You need to claim a starter pet first. Go to the Home tab to get started!'
             );
           } else {
-            console.error('Error loading user pet data:', error);
+            console.error('🐾 [PET TAB] ❌ Error loading user pet data:', error);
           }
         } finally {
           setIsLoading(false);

@@ -18,6 +18,13 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { Buffer } from "buffer";
 import { Platform } from "react-native";
 
+// Debug: Log environment variables at startup
+console.log('🔧 [APP] Environment Variables:');
+console.log('🔧 [APP] USER_MAP_CONTRACT_ADDRESS:', process.env.EXPO_PUBLIC_USER_MAP_CONTRACT_ADDRESS);
+console.log('🔧 [APP] PET_NFT_CONTRACT_ADDRESS:', process.env.EXPO_PUBLIC_PET_NFT_CONTRACT_ADDRESS);
+console.log('🔧 [APP] RPC_ENDPOINT:', process.env.EXPO_PUBLIC_RPC_ENDPOINT);
+console.log('🔧 [APP] Platform:', Platform.OS);
+
 // Platform-specific crypto setup
 if (Platform.OS !== 'web') {
   const crypto = require("react-native-quick-crypto");

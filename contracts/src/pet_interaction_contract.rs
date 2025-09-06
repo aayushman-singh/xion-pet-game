@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
     Addr, Uint128, StdError, Storage, Order, Timestamp,
 };
 use cw2::set_contract_version;
@@ -366,12 +366,12 @@ fn execute_process_status_degradation(
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::PetStatus { pet_id } => {
-            to_binary(&PET_STATUS.load(deps.storage, &pet_id)?)
+            to_json_binary(&PET_STATUS.load(deps.storage, &pet_id)?)
         }
         QueryMsg::GameSession { session_id } => {
-            to_binary(&GAME_SESSIONS.load(deps.storage, &session_id)?)
+            to_json_binary(&GAME_SESSIONS.load(deps.storage, &session_id)?)
         }
         QueryMsg::PetCareHistory { pet_id, limit } => {
             let limit = limit.unwrap_or(50) as usize;
@@ -380,7 +380,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .range(deps.storage, None, None, Order::Descending)
                 .take(limit)
                 .collect();
-            to_binary(&history?)
+            to_json_binary(&history?)
         }
         QueryMsg::UserGameSessions { user, limit } => {
             let addr = deps.api.addr_validate(&user)?;
@@ -396,10 +396,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 })
                 .take(limit)
                 .collect();
-            to_binary(&sessions?)
+            to_json_binary(&sessions?)
         }
         QueryMsg::ProofStatus { proof_id } => {
-            to_binary(&ZKTLS_PROOFS.load(deps.storage, &proof_id)?)
+            to_json_binary(&ZKTLS_PROOFS.load(deps.storage, &proof_id)?)
         }
     }
 }

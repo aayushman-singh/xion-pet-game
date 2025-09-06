@@ -1,12 +1,10 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
-    Addr, CosmosMsg, WasmMsg, SubMsg,
+    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Empty,
 };
 use cw2::set_contract_version;
-use cw721::{ContractError, Cw721, Cw721Execute, Cw721Query, Expiration, OwnerOfResponse};
 use cw721_base::{
     state::Cw721Contract,
-    ContractError as Cw721BaseError,
+    ContractError,
     InstantiateMsg as Cw721InstantiateMsg,
     QueryMsg as Cw721QueryMsg,
     ExecuteMsg as Cw721ExecuteMsg,
@@ -92,7 +90,7 @@ pub fn instantiate(
         minter: msg.minter,
     };
 
-    let cw721_contract = Cw721Contract::default();
+    let cw721_contract: Cw721Contract<Option<Metadata>, Empty, Empty, Empty> = Cw721Contract::default();
     cw721_contract.instantiate(deps, _env, info, instantiate_msg)?;
 
     Ok(Response::new()
@@ -108,7 +106,7 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    let cw721_contract = Cw721Contract::default();
+    let cw721_contract: Cw721Contract<Option<Metadata>, Empty, Empty, Empty> = Cw721Contract::default();
 
     match msg {
         ExecuteMsg::Mint { token_id, owner, token_uri, extension } => {
@@ -168,28 +166,28 @@ pub fn execute(
 
 #[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    let cw721_contract = Cw721Contract::default();
+    let cw721_contract: Cw721Contract<Option<Metadata>, Empty, Empty, Empty> = Cw721Contract::default();
 
     match msg {
         QueryMsg::OwnerOf { token_id, include_expired } => {
             let query_msg = Cw721QueryMsg::OwnerOf { token_id, include_expired };
-            to_binary(&cw721_contract.query(deps, env, query_msg)?)
+            to_json_binary(&cw721_contract.query(deps, env, query_msg)?)
         }
         QueryMsg::NumTokens {} => {
             let query_msg = Cw721QueryMsg::NumTokens {};
-            to_binary(&cw721_contract.query(deps, env, query_msg)?)
+            to_json_binary(&cw721_contract.query(deps, env, query_msg)?)
         }
         QueryMsg::ContractInfo {} => {
             let query_msg = Cw721QueryMsg::ContractInfo {};
-            to_binary(&cw721_contract.query(deps, env, query_msg)?)
+            to_json_binary(&cw721_contract.query(deps, env, query_msg)?)
         }
         QueryMsg::AllTokens { start_after, limit } => {
             let query_msg = Cw721QueryMsg::AllTokens { start_after, limit };
-            to_binary(&cw721_contract.query(deps, env, query_msg)?)
+            to_json_binary(&cw721_contract.query(deps, env, query_msg)?)
         }
         QueryMsg::Tokens { owner, start_after, limit } => {
             let query_msg = Cw721QueryMsg::Tokens { owner, start_after, limit };
-            to_binary(&cw721_contract.query(deps, env, query_msg)?)
+            to_json_binary(&cw721_contract.query(deps, env, query_msg)?)
         }
     }
 }

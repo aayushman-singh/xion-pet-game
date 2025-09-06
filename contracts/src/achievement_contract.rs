@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, 
+    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, 
     Addr, Uint128, StdError, Storage, Order,
 };
 use cw2::set_contract_version;
@@ -295,13 +295,13 @@ fn execute_validate_proof(
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::Achievement { id } => {
-            to_binary(&ACHIEVEMENTS.load(deps.storage, &id)?)
+            to_json_binary(&ACHIEVEMENTS.load(deps.storage, &id)?)
         }
         QueryMsg::UserAchievement { user, achievement_id } => {
             let addr = deps.api.addr_validate(&user)?;
-            to_binary(&USER_ACHIEVEMENTS.load(deps.storage, (addr.as_str(), &achievement_id))?)
+            to_json_binary(&USER_ACHIEVEMENTS.load(deps.storage, (addr.as_str(), &achievement_id))?)
         }
         QueryMsg::UserAchievements { user } => {
             let addr = deps.api.addr_validate(&user)?;
@@ -309,16 +309,16 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .prefix(addr.as_str())
                 .range(deps.storage, None, None, Order::Ascending)
                 .collect();
-            to_binary(&achievements?)
+            to_json_binary(&achievements?)
         }
         QueryMsg::AllAchievements {} => {
             let achievements: StdResult<Vec<_>> = ACHIEVEMENTS
                 .range(deps.storage, None, None, Order::Ascending)
                 .collect();
-            to_binary(&achievements?)
+            to_json_binary(&achievements?)
         }
         QueryMsg::ProofStatus { proof_id } => {
-            to_binary(&ZKTLS_PROOFS.load(deps.storage, &proof_id)?)
+            to_json_binary(&ZKTLS_PROOFS.load(deps.storage, &proof_id)?)
         }
     }
 }

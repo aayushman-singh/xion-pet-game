@@ -44,3 +44,4 @@ ios/
 .env*.local
 package-lock.json
 abstraxion-expo-demo/
+/contracts/target/debug

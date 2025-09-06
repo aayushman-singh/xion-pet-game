@@ -1,36 +1,38 @@
 [package]
-name = "xion-pet-contracts"
+name = "user-map-contract"
 version = "1.0.0"
 edition = "2021"
 
+exclude = ["contract.wasm", "hash.txt"]
+
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
-# Multiple binaries for different contracts
-[[bin]]
-name = "pet_nft_contract"
-path = "pet_nft_contract.rs"
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
+overflow-checks = true
 
-[[bin]]
-name = "achievement_contract"
-path = "achievement_contract.rs"
-
-[[bin]]
-name = "pet_interaction_contract"
-path = "pet_interaction_contract.rs"
+[features]
+library = []
 
 [dependencies]
-cosmwasm-schema = "1.4"
-cosmwasm-std = "1.4"
-cw2 = "1.1"
-cw721 = "0.21"
-cw721-base = "0.21"
-cw-storage-plus = "1.1"
-schemars = "0.8"
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-thiserror = "1.0"
+cosmwasm-schema = "1.5.0"
+cosmwasm-std = "1.5.0" 
+cw-storage-plus = "1.2.0"
+cw2 = "1.1.0"
+cw721 = "0.18.0"
+cw721-base = { version = "0.18.0", features = ["library"] }
+serde = { version = "1.0.210", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.21" }
+schemars = "0.8.10"
 
 [dev-dependencies]
-anyhow = "1.0"
-cosmwasm-storage = "1.4"
+cw-multi-test = "0.20.0"
 

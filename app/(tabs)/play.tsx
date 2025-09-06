@@ -88,8 +88,14 @@ export default function PlayScreen() {
   // Load user pet data and set up available pets with ownership
   useEffect(() => {
     const loadUserPetData = async () => {
+      console.log('🎮 [PLAY TAB] Starting to load user pet data...');
+      console.log('🎮 [PLAY TAB] isWebMock:', isWebMock);
+      console.log('🎮 [PLAY TAB] isConnected:', isConnected);
+      console.log('🎮 [PLAY TAB] account:', account);
+      
       // Web mock: Set mock pet data
       if (isWebMock) {
+        console.log('🎮 [PLAY TAB] Using web mock data');
         const mockPetData = {
           hasStarterPet: true,
           starterPet: {
